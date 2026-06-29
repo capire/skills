@@ -1,0 +1,359 @@
+{
+  "skill_name": "cap-developer",
+  "evals": [
+    {
+      "id": "node-1",
+      "prompt": "I need to start a new CAP project for a helpdesk app. It'll have tickets with a title, description, priority (low/medium/high), status (open/in-progress/resolved), and an assignee. Can you set up the project and write the data model?",
+      "expected_output": "Correct cds init command, no cds add sample, namespace defined, cuid/managed aspects used, db entity exposed via service projection, PascalCase/camelCase naming conventions followed.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "uses-cds-init-with-name",
+          "description": "Uses 'cds init <name>' to create the project, not mkdir or bare cds init"
+        },
+        {
+          "id": "no-cds-add-sample",
+          "description": "Does NOT suggest running 'cds add sample'"
+        },
+        {
+          "id": "has-namespace",
+          "description": "CDS model declares a namespace"
+        },
+        {
+          "id": "uses-cuid-and-managed",
+          "description": "Uses both 'cuid' and 'managed' aspects from @sap/cds/common"
+        },
+        {
+          "id": "service-uses-projection",
+          "description": "Service exposes entities via 'as projection on' \u2014 not raw db entities"
+        },
+        {
+          "id": "uses-cds-add-data",
+          "description": "Sample data generation uses 'cds add data --records' \u2014 not hand-written CSVs"
+        }
+      ],
+      "stack": "node"
+    },
+    {
+      "id": "node-2",
+      "prompt": "I wrote a handler to close a ticket only if it's currently open. Can you review it?\n```js\nthis.before('UPDATE', Tickets, async req => {\n  const ticket = await SELECT.one.from(Tickets).where({ ID: req.data.ID })\n  if (ticket?.status !== 'open') {\n    return req.reject(409, 'Only open tickets can be closed')\n  }\n})\n```",
+      "expected_output": "Identifies SELECT + conditional as two DB round-trips. Rewrites using a single conditional UPDATE with WHERE clause. Keeps req.reject for error handling.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "identifies-two-roundtrips",
+          "description": "Explicitly identifies the SELECT + UPDATE pattern as two DB round-trips"
+        },
+        {
+          "id": "suggests-conditional-update",
+          "description": "Suggests folding the check into a single conditional UPDATE, checking the returned row count"
+        },
+        {
+          "id": "keeps-req-reject",
+          "description": "Revised solution still uses req.reject for error handling (not throw)"
+        }
+      ],
+      "stack": "node"
+    },
+    {
+      "id": "node-3",
+      "prompt": "I need to make sure the `priority` field in my Tickets entity only accepts values 'low', 'medium', or 'high', and that `title` is required. Should I write a handler for this?",
+      "expected_output": "Recommends @mandatory for title and @assert.range or a CDS enum/type for priority. Does NOT recommend writing a custom handler.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "no-handler-recommended",
+          "description": "Does NOT recommend writing a custom handler as the solution"
+        },
+        {
+          "id": "uses-mandatory-annotation",
+          "description": "Recommends @mandatory for the title field"
+        },
+        {
+          "id": "uses-assert-range-or-enum",
+          "description": "Recommends @assert.range or a CDS type/enum for priority validation"
+        }
+      ],
+      "stack": "node"
+    },
+    {
+      "id": "node-4",
+      "prompt": "Can you help me build a small todo app in CAP Node.js? I need a Todos entity with a title, a done flag, and an optional due date. Also add a custom action to mark a todo as done.",
+      "expected_output": "Uses cds init <name>, no cds add sample, namespace defined, cuid+managed aspects, service projection, action registered with srv.on, req.reject not throw, explicit column list in SELECT, cds add data --records for sample data.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "uses-cds-init-with-name",
+          "description": "Uses 'cds init <name>' to create the project, not mkdir"
+        },
+        {
+          "id": "service-uses-projection",
+          "description": "Service exposes Todos via 'as projection on' \u2014 not the raw db entity"
+        },
+        {
+          "id": "uses-req-reject-not-throw",
+          "description": "Handler uses req.reject() for errors \u2014 not throw or req.error"
+        },
+        {
+          "id": "explicit-column-list-in-select",
+          "description": "Any SELECT in the handler uses an explicit column list, not SELECT *"
+        },
+        {
+          "id": "uses-cds-add-data",
+          "description": "Sample data uses 'cds add data --records' \u2014 not hand-written CSVs with invented UUIDs"
+        }
+      ],
+      "stack": "node"
+    },
+    {
+      "id": "node-5",
+      "prompt": "I'm writing a handler to validate that a new Order has at least one item before it's saved. Here's what I have:\n```js\nthis.before('CREATE', Orders, req => {\n  if (!req.data.items || req.data.items.length === 0) {\n    throw new Error('Order must have at least one item')\n  }\n})\n```\nIs this the right way to handle it?",
+      "expected_output": "Identifies throw new Error as wrong in CAP. Recommends req.reject(400, '...') instead. Explains why: CAP owns error handling, correct HTTP status code, proper OData error body.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "identifies-throw-as-wrong",
+          "description": "Identifies 'throw new Error' as wrong / non-idiomatic in CAP"
+        },
+        {
+          "id": "recommends-req-reject",
+          "description": "Recommends req.reject(400, '...') as the correct replacement"
+        },
+        {
+          "id": "explains-why",
+          "description": "Explains why: CAP error pipeline, correct HTTP status code, or OData error body"
+        }
+      ],
+      "stack": "node"
+    },
+    {
+      "id": "node-6",
+      "prompt": "In my Tickets entity I have a rule: when status is set to 'resolved', the resolvedAt date must be provided. How should I validate this \u2014 do I need a custom handler?",
+      "expected_output": "Does NOT recommend a custom handler. Uses @assert annotation with a case/when expression, e.g. @assert: (case when status = 'resolved' then resolvedAt end).",
+      "files": [],
+      "assertions": [
+        {
+          "id": "no-handler-recommended",
+          "description": "Does NOT recommend writing a custom handler as the solution"
+        },
+        {
+          "id": "uses-assert-case-when",
+          "description": "Uses @assert annotation with a CASE WHEN expression for the cross-field validation"
+        },
+        {
+          "id": "correct-cap-facts",
+          "description": "Does not falsely claim that @assert cannot handle conditional cross-field validation"
+        }
+      ],
+      "stack": "node"
+    },
+    {
+      "id": "java-1",
+      "prompt": "I need to start a new CAP Java project for a bookshop app. It'll have Books with a title, price, stock (integer), and an association to an Authors entity (name, dateOfBirth). Can you set up the project and write the data model?",
+      "expected_output": "Correct cds init command with --java flag, no cds add sample, namespace defined in db/schema.cds, cuid/managed aspects used, db entities exposed via service projections, PascalCase/camelCase naming conventions, Maven run from project root, sample data via cds add data --records.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "uses-cds-init-java",
+          "description": "Uses 'cds init <name> --java' to create the project, not a plain 'cds init' without the --java flag"
+        },
+        {
+          "id": "no-cds-add-sample",
+          "description": "Does NOT suggest running 'cds add sample'"
+        },
+        {
+          "id": "has-namespace",
+          "description": "CDS model declares a namespace in db/schema.cds"
+        },
+        {
+          "id": "uses-cuid-and-managed",
+          "description": "Uses both 'cuid' and 'managed' aspects from @sap/cds/common"
+        },
+        {
+          "id": "service-uses-projection",
+          "description": "Service exposes entities via 'as projection on' \u2014 not raw db entities"
+        },
+        {
+          "id": "maven-from-root",
+          "description": "All Maven commands (mvn compile, mvn spring-boot:run) are shown running from the project root, not from srv/"
+        },
+        {
+          "id": "uses-cds-add-data",
+          "description": "Sample data generation uses 'cds add data --records' \u2014 not hand-written CSVs with invented UUIDs"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-2",
+      "prompt": "I wrote a handler to decrement book stock when an order is placed. Can you review it?\n```java\n@On(entity = Books_.class)\npublic void onOrderBook(CdsUpdateEventContext context) {\n    String bookId = (String) context.getCqn().ref().segments().get(0).keys().get(\"ID\");\n    Result res = db.run(Select.from(Books_.class).where(b -> b.ID().eq(bookId)));\n    Books book = res.single(Books.class);\n    int newStock = book.getStock() - 1;\n    db.run(Update.entity(Books_.class).where(b -> b.ID().eq(bookId)).data(Books.STOCK, newStock));\n}\n```",
+      "expected_output": "Identifies multiple issues: (1) CqnReference.Segment does not have a keys() method \u2014 use CqnAnalyzer instead; (2) SELECT then UPDATE is a race condition \u2014 use .set() with CQN expression for atomic decrement; (3) typed Select returns CdsResult<Books>, not Result; (4) read-modify-write allows lost updates under concurrency.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "identifies-no-keys-method",
+          "description": "Identifies that CqnReference.Segment does NOT have a keys() method and recommends CqnAnalyzer"
+        },
+        {
+          "id": "identifies-race-condition",
+          "description": "Identifies the read-modify-write pattern as a race condition / lost-update risk"
+        },
+        {
+          "id": "uses-set-with-expression",
+          "description": "Recommends using .set() with a CQN expression (e.g. s -> s.minus(quantity)) for atomic decrement"
+        },
+        {
+          "id": "identifies-typed-result-mismatch",
+          "description": "Identifies that Select.from(Books_.class) returns CdsResult<Books>, not Result"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-3",
+      "prompt": "I need to make sure the `price` field in my Books entity only accepts values between 0.01 and 9999.99, and that `title` is required. Should I write a @Before handler for this?",
+      "expected_output": "Recommends @mandatory for title and @assert.range for price. Does NOT recommend writing a custom handler.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "no-handler-recommended",
+          "description": "Does NOT recommend writing a custom handler for these validations"
+        },
+        {
+          "id": "uses-mandatory-annotation",
+          "description": "Recommends @mandatory for the title field"
+        },
+        {
+          "id": "uses-assert-range",
+          "description": "Recommends @assert.range: [0.01, 9999.99] for price validation"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-4",
+      "prompt": "Can you help me build a small bookshop app in CAP Java? I need Books and Authors entities, a CatalogService for browsing, and a custom action 'submitOrder' that decrements stock. Include mock users for testing.",
+      "expected_output": "Uses cds init --java, namespace, cuid+managed, projections, @Before/@On annotations with typed entity classes, CqnAnalyzer for bound action keys, .set() with CQN expression for stock decrement, ServiceException for errors, spring-boot-starter-security dependency in srv/pom.xml, mock users in application.yaml, mvn compile before writing handlers, mvn spring-boot:run from root.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "uses-cds-init-java",
+          "description": "Uses 'cds init <name> --java' to create the project"
+        },
+        {
+          "id": "service-uses-projection",
+          "description": "Service exposes entities via 'as projection on'"
+        },
+        {
+          "id": "uses-service-exception",
+          "description": "Error handling uses 'throw new ServiceException(ErrorStatuses.XXX, ...)' \u2014 not 'throw new RuntimeException' or custom exceptions"
+        },
+        {
+          "id": "atomic-stock-decrement",
+          "description": "Stock decrement uses .set() with CQN expression, not read-modify-write"
+        },
+        {
+          "id": "spring-security-dependency",
+          "description": "Adds spring-boot-starter-security dependency to srv/pom.xml for mock auth"
+        },
+        {
+          "id": "mock-users-in-yaml",
+          "description": "Configures mock users in srv/src/main/resources/application.yaml under cds.security.mock.users"
+        },
+        {
+          "id": "mvn-compile-before-handlers",
+          "description": "Runs mvn compile before writing handler code to generate typed entity classes"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-5",
+      "prompt": "I'm writing a handler to validate that an Order must have at least one item before saving. Here's what I have:\n```java\n@Before(event = CdsService.EVENT_CREATE, entity = Orders_.class)\npublic void validateOrder(List<Orders> orders) {\n    for (Orders order : orders) {\n        if (order.getItems() == null || order.getItems().isEmpty()) {\n            throw new RuntimeException(\"Order must have at least one item\");\n        }\n    }\n}\n```\nIs this correct?",
+      "expected_output": "Identifies two issues: (1) CdsService does not exist \u2014 should use CqnService.EVENT_CREATE; (2) throw new RuntimeException is wrong \u2014 should use 'throw new ServiceException(ErrorStatuses.BAD_REQUEST, msg)'. Additionally notes that event/entity can be inferred from the method signature.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "identifies-cdsservice-wrong",
+          "description": "Identifies that 'CdsService' does not exist and recommends 'CqnService' for event constants"
+        },
+        {
+          "id": "recommends-service-exception",
+          "description": "Recommends 'throw new ServiceException(ErrorStatuses.BAD_REQUEST, ...)' instead of RuntimeException"
+        },
+        {
+          "id": "explains-signature-inference",
+          "description": "Notes that @Before can infer event and entity from the method signature (List<Orders> parameter implies CREATE + Orders_ entity)"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-6",
+      "prompt": "In my Orders entity I have a rule: when status is set to 'confirmed', the confirmedAt timestamp must be provided. How should I validate this in CAP Java \u2014 do I need a custom handler?",
+      "expected_output": "Does NOT recommend a custom handler. Uses @assert annotation with a case/when expression for cross-field validation.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "no-handler-recommended",
+          "description": "Does NOT recommend writing a custom handler as the primary solution"
+        },
+        {
+          "id": "uses-assert-case-when",
+          "description": "Uses @assert annotation with a CASE WHEN expression for cross-field validation"
+        },
+        {
+          "id": "correct-cap-facts",
+          "description": "Does not falsely claim that @assert cannot handle conditional cross-field validation"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-7",
+      "prompt": "I'm trying to run my CAP Java app but getting errors. I'm running `mvn spring-boot:run -pl srv` from the project root. Also, to check if the app is up I'm curling http://localhost:8080/odata/v4/ \u2014 it returns 404. What's wrong?",
+      "expected_output": "Identifies two problems: (1) '-pl srv' triggers ReactorModuleConvergence failure \u2014 must run 'mvn spring-boot:run' from project root without -pl; (2) /odata/v4/ always returns 404 \u2014 must poll an actual entity endpoint like /odata/v4/<service>/<Entity> for health check.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "identifies-pl-srv-wrong",
+          "description": "Identifies that '-pl srv' or running from srv/ directory will cause ReactorModuleConvergence failure"
+        },
+        {
+          "id": "correct-mvn-command",
+          "description": "Recommends 'mvn spring-boot:run' from project root without -pl flag"
+        },
+        {
+          "id": "identifies-odata-root-404",
+          "description": "Explains that /odata/v4/ root always returns 404 and is NOT a valid health-check endpoint"
+        },
+        {
+          "id": "recommends-entity-endpoint",
+          "description": "Recommends polling an actual entity endpoint (e.g. /odata/v4/browse/Books) to verify readiness"
+        }
+      ],
+      "stack": "java"
+    },
+    {
+      "id": "java-8",
+      "prompt": "I have a bound action 'approve' on my Orders entity. How do I extract the order ID from the action context in the handler?\n```java\n@On\npublic void onApprove(ApproveContext context) {\n    CqnReference ref = context.getCqn();\n    String orderId = (String) ref.segments().get(0).keys().get(\"ID\");\n}\n```",
+      "expected_output": "Identifies that CqnReference.Segment does not have a keys() method. Recommends using CqnAnalyzer.create(context.getModel()) and analyzer.analyze(context.getCqn()) to extract targetKeys().",
+      "files": [],
+      "assertions": [
+        {
+          "id": "identifies-no-keys-method",
+          "description": "Identifies that CqnReference.Segment does NOT have a keys() method"
+        },
+        {
+          "id": "uses-cqn-analyzer",
+          "description": "Recommends CqnAnalyzer.create(context.getModel()) for extracting keys"
+        },
+        {
+          "id": "uses-analyze-and-target-keys",
+          "description": "Shows calling analyzer.analyze(context.getCqn()).targetKeys() to get the bound entity's key values"
+        }
+      ],
+      "stack": "java"
+    }
+  ]
+}
