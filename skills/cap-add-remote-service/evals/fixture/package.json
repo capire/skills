@@ -1,0 +1,17 @@
+{
+  "name": "travel-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@cap-js/sqlite": "^2",
+    "@capire/xflights-data": "^0.1.18",
+    "@sap/cds": "^9"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^9"
+  },
+  "cds": {
+    "requires": {
+      "db": "sqlite"
+    }
+  }
+}
