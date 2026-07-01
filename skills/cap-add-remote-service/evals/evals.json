@@ -1,0 +1,23 @@
+{
+  "skill_name": "cap-add-remote-service",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I have a CAP travel booking app with a Bookings entity. Add flight data from the @capire/xflights-data npm package so each booking can reference a flight. Wire up the consumption view, add the association in the domain model, expose the remote entity in the service as readonly, and add a delegation handler.",
+      "expected_output": "A consumption view CDS file projecting xflights data with domain-friendly names. An association added to the Bookings entity. A @readonly exposure in the service CDS. A delegation handler in the JS file using cds.connect.to() and this.on('READ', ...).",
+      "files": ["skills/cap-add-remote-service/evals/fixture"]
+    },
+    {
+      "id": 1,
+      "prompt": "My travel CAP app has @capire/xflights-data installed and a consumption view at apis/xflights.cds. I want to show flight name and departure alongside booking records in a list view. Should I replicate or delegate? Set up whichever is correct.",
+      "expected_output": "The skill recommends replication (needed for SQL JOINs with local Bookings data). Implements @cds.persistence.table annotation and replication logic in the handler. Explains trade-offs before implementing.",
+      "files": ["skills/cap-add-remote-service/evals/fixture"]
+    },
+    {
+      "id": 2,
+      "prompt": "I have a CAP app with an Orders entity that has a customer field. I want to use S/4 Business Partner data as a value help for that field. The EDMX is at data/API_BUSINESS_PARTNER.edmx. Wire it up for delegation only — no replication needed.",
+      "expected_output": "Runs cds import on the EDMX. Creates a consumption view mapping BusinessPartner to a customer-friendly entity. Adds @readonly exposure in the service. Adds a delegation handler. Does NOT add @cds.persistence.table since replication is not needed.",
+      "files": ["skills/cap-add-remote-service/evals/fixture"]
+    }
+  ]
+}
