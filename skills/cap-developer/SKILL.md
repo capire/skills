@@ -85,6 +85,7 @@ insufficient.
 |---|---|
 | Input validation (format) | `@assert.format: '...'` |
 | Input validation (range) | `@assert.range: [min, max]` |
+| Input validation (enum) | `@assert.range enum { val1; val2; }` |
 | Target Entity exists check | `@assert.target` |
 | Cross-field / exists check | `@assert: (case when ... then '...' end)` |
 | Required field | `@mandatory` |
@@ -94,6 +95,7 @@ insufficient.
 | Audit fields | `: managed` aspect |
 | Draft support | `@odata.draft.enabled` |
 | Derived / computed values | Calculated elements: `total : Decimal = price * quantity;` |
+| Status-transition workflow (approve/reject/etc.) | `@flow.status` + `@from` / `@to` on actions pre-GA / Gamma |
 
 > Use Draft only when building a Fiori / SAPUI5 application. It is a complex mechanism that other
 > UI frameworks cannot handle easily.
