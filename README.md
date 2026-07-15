@@ -23,7 +23,7 @@ See [skills CLI](https://www.skills.sh/docs/cli).
 Inside Claude Code, run:
 
 ```text
-/plugin marketplace add https://github.com/capire/skills.git
+/plugin marketplace add capire/skills
 /plugin install cap-developer@cap
 ```
 
