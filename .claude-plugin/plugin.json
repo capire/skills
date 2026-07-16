@@ -1,0 +1,8 @@
+{
+  "name": "cap-developer",
+  "description": "Skills for SAP Cloud Application Programming Model (CAP) development",
+  "version": "1.0.0",
+  "homepage": "https://cap.cloud.sap/docs/",
+  "repository": "https://github.com/capire/skills",
+  "license": "Apache-2.0"
+}
