@@ -68,8 +68,38 @@ When writing custom handlers, follow these best practices:
 
 ### Important API facts
 
-- **`CdsService` does not exist** — use `CqnService` for event constants (`CqnService.EVENT_READ`,
-  `CqnService.EVENT_CREATE`, etc.). Import: `com.sap.cds.services.cds.CqnService`
+- **Generated typed service interfaces** — for every CDS-modeled service the code generator emits
+  a typed interface, e.g. `service CatalogService` → `cds.gen.catalogservice.CatalogService`. It
+  extends `CqnService` and exposes typed methods for each declared action/function, plus nested
+  `Application` / `Remote` sub-interfaces (`CatalogService.Application extends ApplicationService,
+  CatalogService`). **Inject the generated interface by type** rather than looking up a service by
+  name/qualifier — you get compile-time-checked action calls and typed parameters:
+  ```java
+  @Autowired CatalogService catalog;   // cds.gen.catalogservice.CatalogService
+
+  // typed bound-action call — no string lookups, parameters and return type are checked
+  Books_ ref = CQL.entity(Books_.class).filter(b -> b.ID().eq(bookId));
+  Reviews r = catalog.review(ref, 5);
+  ```
+  Use this for service-tier calls (invoking actions/functions, triggering events through the full
+  handler chain). **Prefer the application/CQN service over `PersistenceService` whenever you can.**
+- **`PersistenceService` bypasses the application service layer** — going through `PersistenceService`
+  (or any service-tier query routed straight at the database) skips everything that the application
+  service would normally apply: `@Before`/`@On`/`@After` handlers on the target service, input
+  validation, `@assert.*` constraints, `@mandatory` / `@readonly` / `@insertonly` checks,
+  authorization from `@requires` / `@restrict`, field-level `@restrict.grant`, computed elements,
+  default values from `@cds.on.insert` / `@cds.on.update`, managed associations resolution,
+  localization, and draft handling. The data lands in the database raw. Reach for
+  `PersistenceService` only when you genuinely need that — e.g. internal bookkeeping a custom
+  handler is itself implementing, atomic DB-side arithmetic (see the race-condition note below), or
+  reading/writing technical tables not exposed as a service. For anything that represents business
+  logic on a modeled entity, inject the generated typed service interface and let the framework run
+  the full handler chain.
+- **`CdsService` does not exist** — `CqnService` is still the source of event constants
+  (`CqnService.EVENT_READ`, `CqnService.EVENT_CREATE`, etc.). Import:
+  `com.sap.cds.services.cds.CqnService`. You don't need to inject `CqnService` directly — the
+  generated typed service interface extends it, so the constants are available on any service
+  reference you already hold.
 - **`CqnReference.Segment`** only has `id()` and `filter()` — it does NOT have a `keys()` method.
   To extract keys from a bound action or entity reference, use `CqnAnalyzer`:
   ```java
@@ -110,7 +140,11 @@ When writing custom handlers, follow these best practices:
     `context.setCompleted()` before returning. Otherwise the framework will add a confusing
     "No ON handler completed the processing" wrapper error. Prefer
     `throw new ServiceException(...)` for immediate validation failures in `@On` handlers.
-- Prefer autowired injection by class `@Autowired PersistenceService db` over injection by `@Qualifier`
+- Prefer autowired injection by class over injection by `@Qualifier`. Default to the generated
+  typed service interface (e.g. `@Autowired CatalogService catalog`) — it runs the full handler
+  chain, applies authorization and validation, and gives you typed action/function calls. Only fall
+  back to `@Autowired PersistenceService db` when you specifically need to bypass that layer for
+  DB-tier work (see the `PersistenceService bypasses the application service layer` note above).
 - Rely on CAP's intrinsic transaction handling — no manual transactions
 - Minimize DB round-trips:
   - Combine checks into the query itself rather than SELECT + check + UPDATE
