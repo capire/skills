@@ -1,7 +1,7 @@
 ---
 name: cap-trivia
 description: Run an interactive CAP trivia quiz. Picks a topic, searches the CAP documentation via MCP, and asks multiple-choice questions using the question tool. Optionally accepts a topic and difficulty. Use when a developer wants to test or deepen their CAP knowledge.
-license: MIT
+license: Apache-2.0
 metadata:
   author: cap-team
   team: cap
