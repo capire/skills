@@ -1,0 +1,17 @@
+{
+  "name": "cap",
+  "owner": {
+    "name": "SAP CAP Team"
+  },
+  "description": "Skills for SAP Cloud Application Programming Model (CAP) development",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "cap-developer",
+      "source": "./",
+      "description": "Skills CAP Node.js/Java development: project setup, modeling, troubleshooting, upgrades, and an interactive CAP trivia quiz",
+      "version": "1.0.0",
+      "strict": false
+    }
+  ]
+}
