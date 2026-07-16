@@ -1,7 +1,7 @@
 ---
 name: cap-upgrade
 description: Upgrade a CAP project to the latest CDS version. Drives the `cds upgrade` CLI for CDS 10+ (pattern detection, false-positive filtering, fix categorisation) and handles manual upgrades for earlier versions (major jumps like 7→8, 8→9 as well as minor/patch updates). Use when a developer needs to upgrade CDS in a CAP project, already has a `cds upgrade` report, or wants to move to a newer CDS version.
-license: MIT
+license: Apache-2.0
 compatibility: all
 metadata:
   author: Tim Schulze-Hartung

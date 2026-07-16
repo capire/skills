@@ -1,7 +1,7 @@
 ---
 name: cap-developer
 description: Expert guidance for building and extending CAP (Cloud Application Programming Model) applications in either Node.js or Java. Covers project initialization, CDS modeling, declarative annotations, and custom handler best practices for both runtimes. Use when building a new CAP app, extending an existing one, or reviewing CAP code for correctness and idioms — regardless of whether the stack is Node.js or Java.
-license: MIT
+license: Apache-2.0
 metadata:
   author: cap-team
   team: cap
