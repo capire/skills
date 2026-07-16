@@ -1,7 +1,7 @@
 ---
 name: cap-add-remote-service
 description: Add a remote service integration to an existing CAP Node.js application using the Calesi pattern. Imports external APIs (from other CAP apps or OData/S4 sources), creates consumption views, wires up delegation and data federation handlers, and validates the result with cds watch. Use when a developer wants to consume an external service in their CAP app.
-license: MIT
+license: Apache-2.0
 metadata:
   domain: cap
   type: integration
