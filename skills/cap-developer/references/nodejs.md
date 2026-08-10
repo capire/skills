@@ -33,8 +33,7 @@ Only use custom handlers, when declarative constraints don't suffice. Constraint
 For custom handlers:
 - Register with `srv.before`, `srv.on`, `srv.after` — pick the correct phase.
 - Reject with `req.reject(code, message)` — never throw raw errors.
-  Use `req.error(code, message)` to collect multiple errors without aborting immediately (processing
-  continues; all collected errors are returned together at the end).
+- Use `req.error(code, message)` to collect multiple errors without aborting immediately; processing continues, and CAP returns all collected errors together at the end.
 - Use explicit column lists in SELECT — never `SELECT *`.
 - Rely on CAP's intrinsic transaction handling — no manual transactions.
 - Minimize DB round-trips: combine checks into the query itself rather than SELECT + check + UPDATE.
