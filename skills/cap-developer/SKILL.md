@@ -81,20 +81,20 @@ Apply these conventions consistently:
 Prefer annotations over custom handler code. Only write handlers when declarative options are
 insufficient.
 
-| Need | Annotation |
+| Validation / Concern | CAP feature |
 |---|---|
 | Input validation (format) | `@assert.format: '...'` |
 | Input validation (range) | `@assert.range: [min, max]` |
 | Input validation (enum) | `@assert.range enum { val1; val2; }` |
-| Target Entity exists check | `@assert.target` |
-| Cross-field / exists check | `@assert: (case when ... then '...' end)` |
-| Required field | `@mandatory` |
+| Target entity existence check | `@assert.target` |
+| Custom validation expression | `@assert: (case when ... then '...' end)` |
+| Required field / parameter | `@mandatory` |
 | Read-only entity | `@readonly` |
 | Insert-only entity | `@insertonly` |
 | Authorization | `@restrict` / `@requires` |
 | Audit fields | `: managed` aspect |
 | Draft support | `@odata.draft.enabled` |
-| Derived / computed values | Calculated elements: `total : Decimal = price * quantity;` |
+| Computed values | Calculated elements: `total : Decimal = price * quantity;` |
 | Status-transition workflow (approve/reject/etc.) | `@flow.status` + `@from` / `@to` on actions pre-GA / Gamma |
 
 > Use Draft only when building a Fiori / SAPUI5 application. It is a complex mechanism that other
