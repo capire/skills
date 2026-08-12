@@ -18,6 +18,31 @@ cds watch          # start the dev loop
 editing.
 
 
+## Module system: use ESM
+
+New CAP Node.js projects use ES modules. Write handlers with `import`/`export`, not `require`:
+
+```js
+import cds from '@sap/cds'
+
+export class CatalogService extends cds.ApplicationService {
+  async init () {
+    // register handlers here, e.g. this.on('READ', 'Books', req => { ... })
+    return super.init()   // required: attaches generic CRUD, auth, ETags, etc.
+  }
+}
+```
+
+- If `package.json` already contains `"type": "module"`, keep it. **Never** delete it or rewrite
+  handlers as CommonJS to sidestep a `require`/`import` mistake — fix the import instead.
+- CDS 10 test tooling is ESM-native: Chai 6 is ESM-only, and `cds test` wraps Node's built-in
+  test runner (`node --test`). Jest still marks its [ESM support as experimental](https://jestjs.io/docs/ecmascript-modules)
+  and requires `--experimental-vm-modules`, so it's not the smoothest fit for a new CAP Node.js
+  project — prefer `node --test` or Vitest.
+- Use `import.meta.dirname` / `import.meta.url` instead of `__dirname` / `__filename` when you
+  need the current file's path.
+
+
 ## File and service conventions
 
 - Match `.cds` and `.js` file names exactly (e.g. `order-service.cds` + `order-service.js`) — CAP
@@ -57,3 +82,5 @@ For custom handlers:
   emitted synchronously; awaiting inside it does not delay startup and silently swallows errors.
   Use an async function only where CAP's API actually awaits it (handler callbacks, bootstrap
   hooks that document async support).
+- Do not convert an ESM project to CommonJS or remove `"type": "module"` to sidestep a
+  `require`/`import` error — see [Module system: use ESM](#module-system-use-esm).
