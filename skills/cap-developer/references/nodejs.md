@@ -26,7 +26,10 @@ New CAP Node.js projects use ES modules. Write handlers with `import`/`export`, 
 import cds from '@sap/cds'
 
 export class CatalogService extends cds.ApplicationService {
-  async init () { /* ... */ }
+  async init () {
+    // register handlers here, e.g. this.on('READ', 'Books', req => { ... })
+    return super.init()   // required: attaches generic CRUD, auth, ETags, etc.
+  }
 }
 ```
 
@@ -79,5 +82,5 @@ For custom handlers:
   emitted synchronously; awaiting inside it does not delay startup and silently swallows errors.
   Use an async function only where CAP's API actually awaits it (handler callbacks, bootstrap
   hooks that document async support).
-- Do not remove `"type": "module"` from `package.json` or "convert to CommonJS" to work around a
-  `require`/`import` error. Fix the import instead. See the "Module system: use ESM" section above.
+- Do not convert an ESM project to CommonJS or remove `"type": "module"` to sidestep a
+  `require`/`import` error — see [Module system: use ESM](#module-system-use-esm).
