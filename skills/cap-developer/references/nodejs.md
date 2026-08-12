@@ -32,9 +32,10 @@ export class CatalogService extends cds.ApplicationService {
 
 - If `package.json` already contains `"type": "module"`, keep it. **Never** delete it or rewrite
   handlers as CommonJS to sidestep a `require`/`import` mistake — fix the import instead.
-- CDS 10 test tooling favors ESM: Chai 6 is ESM-only, and `cds test` wraps Node's built-in test
-  runner (`node --test`), which is ESM-native. Jest has known interop issues with the current
-  test stack.
+- CDS 10 test tooling is ESM-native: Chai 6 is ESM-only, and `cds test` wraps Node's built-in
+  test runner (`node --test`). Jest still marks its [ESM support as experimental](https://jestjs.io/docs/ecmascript-modules)
+  and requires `--experimental-vm-modules`, so it's not the smoothest fit for a new CAP Node.js
+  project — prefer `node --test` or Vitest.
 - Use `import.meta.dirname` / `import.meta.url` instead of `__dirname` / `__filename` when you
   need the current file's path.
 
