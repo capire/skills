@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "cap-mcp-server": {
+            "command": "npx",
+            "args": ["-y", "@cap-js/mcp-server"]
+        }
+    }
+}
