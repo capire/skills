@@ -1,8 +1,9 @@
 # CAP Java — runtime-specific guidance
 
 Read this file when the project is a CAP Java app (Maven `pom.xml`, `srv/` module, `mvn cds:watch`).
-The parent `SKILL.md` covers shared CDS modeling, declarative annotations, sample data, and the
-"Don't" list — this file only covers what is Java-specific.
+Shared, runtime-agnostic guidance lives in sibling references — `cds-modeling.md`,
+`declarative.md`, `custom-logic.md`, `sample-data.md` — and the "Don't" list is in `SKILL.md`.
+This file only covers what is Java-specific.
 
 ## Project Initialization
 

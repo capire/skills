@@ -12,6 +12,20 @@ metadata:
 Provide correct, lean, idiomatic guidance for CAP development — from project setup and CDS
 modeling through declarative annotations and programmatic event handlers.
 
+This SKILL.md is a **router**. Each topic lives in its own reference file so it can be loaded and
+cross-referenced on its own. Read only the file(s) the task needs.
+
+## Reference map
+
+| Topic | File | Load when |
+|---|---|---|
+| Domain model + service projections | `references/cds-modeling.md` | Modeling entities/aspects/associations, or exposing them via projections |
+| Declarative annotations (validation, constraints, auth) | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, `@restrict`/`@requires` |
+| Custom event handlers | `references/custom-logic.md` | Only when annotations can't express the rule; before/on/after logic |
+| Sample / seed data | `references/sample-data.md` | Generating test data with the CLI |
+| Node.js runtime specifics | `references/nodejs.md` | The project is a CAP Node.js app |
+| Java runtime specifics | `references/java.md` | The project is a CAP Java app |
+
 ## Runtime Choice
 
 When in a new project, use the globally installed `@sap/cds-dk` (cli: `cds`).
@@ -20,16 +34,33 @@ This choice is only necessary once code is added or the app is deployed.
 
 When only working with cds models, you can simply start with `cds w` without needing to define a runtime.
 
-## MCP Server
+## Documentation source
 
-Always use the CAP MCP server to:
-- Search CAP documentation before guessing at APIs or annotations
-- Read the effective CDS model of an existing project before adding or changing anything
+Before guessing at APIs or annotations — and before changing an existing project's model —
+consult authoritative CAP documentation. Use whichever source is available; never guess URLs
+or invent APIs:
 
-Never use the CAP MCP server as Fiori/SAPUI5 documentation. It contains useful information about
-how CAP integrates with Fiori/SAPUI5 but is not a complete reference for those frameworks.
+- **CAP MCP server (preferred when present).** Use it to:
+  - Search CAP documentation before guessing at APIs or annotations
+  - Read the effective CDS model of an existing project before adding or changing anything
+- **capire LLM docs (fallback when no MCP server is configured).** The official docs expose
+  LLM-friendly entry points — use these instead of ad-hoc web searches:
+  - `https://cap.cloud.sap/docs/llms.txt` — a curated index of every documentation page; start
+    here to locate the right topic.
+  - `https://cap.cloud.sap/docs/llms-full.txt` — the full documentation concatenated into one
+    file, for when you need the complete text.
+  - `https://cap.cloud.sap/docs/sitemap.md` — the semantic sitemap of all pages.
+  - Any page is available as markdown by appending `.md` to its URL (e.g.
+    `https://cap.cloud.sap/docs/get-started/bookshop.md`) or by sending an
+    `Accept: text/markdown` header. Follow links from `llms.txt`/`sitemap.md` to the exact page
+    rather than guessing a path.
+  - Inspect the effective CDS model without the MCP server via `cds compile <path>` (e.g.
+    `cds compile srv --to edmx`).
 
-**Caveat on release notes and version tables:** MCP search results sourced from release notes or
+Never use CAP docs as a Fiori/SAPUI5 reference. They contain useful information about how CAP
+integrates with Fiori/SAPUI5 but are not a complete reference for those frameworks.
+
+**Caveat on release notes and version tables:** documentation sourced from release notes or
 version recommendation tables may be outdated — they reflect what was true *at the time of that
 release*, not necessarily today. Always cross-check version-specific claims (e.g. "recommended
 Node.js version") against live sources like `cds version`, `npm view`, or the current Getting
@@ -53,103 +84,14 @@ runtime-specific reference files for details).
 - Use `cds add <feature>` (e.g. `hana`, `xsuaa`, `approuter`, `mta`) to add features incrementally
   and only when needed (e.g. when deployment is requested).
 
-## CDS Modeling
+## Working order
 
-Apply these conventions consistently:
-
-- Reuse built-in aspects: `cuid`, `managed`, `temporal` from `@sap/cds/common`
-- Use `Composition of many` for parent-child / document structures; `Association to` for references
-- Use `localized String` for user-facing text that needs translation
-- Naming: PascalCase for entities and types, camelCase for elements
-- Define a `namespace` in `db/schema.cds` to avoid naming collisions between db and service layers
-- Always expose db entities via projections in services — never expose db entities directly
-- Expose only the elements clients actually need; use `{*, ...} excluding { ... }` to trim
-  (`excluding` only works after the wildcard `*` selector)
-- Don't expose an entity just because it exists — shape the projection for the consumer: trim with
-  `excluding`, add calculated fields or flattened associations (e.g. `author.name as author`), and
-  restrict with `@restrict`; only reach for actions/functions when the shape can't be expressed
-  declaratively
-- Entities written to only internally don't belong in the public service; put them in an admin
-  service if needed
-- Avoid two projections in the same service pointing to the same underlying entity — CDS can't
-  auto-redirect associations and will error; remove the redundant projection or use
-  `@cds.redirection.target`
-- Keep Fiori UI annotations in `app/` annotation files, not in service definitions
-
-## Declarative First
-
-Prefer annotations over custom handler code. Only write handlers when declarative options are
-insufficient.
-
-| Validation / Concern | CAP feature |
-|---|---|
-| Input validation (format) | `@assert.format: '...'` |
-| Input validation (range) | `@assert.range: [min, max]` |
-| Input validation (enum) | `@assert.range enum { val1; val2; }` |
-| Target entity existence check | `@assert.target` |
-| Custom validation expression | `@assert: (case when ... then '...' end)` |
-| Required field / parameter | `@mandatory` |
-| Read-only entity | `@readonly` |
-| Insert-only entity | `@insertonly` |
-| Authorization | `@restrict` / `@requires` |
-| Audit fields | `: managed` aspect |
-| Draft support | `@odata.draft.enabled` |
-| Computed values | Calculated elements: `total : Decimal = price * quantity;` |
-| Status-transition workflow (approve/reject/etc.) | `@flow.status` + `@from` / `@to` on actions pre-GA / Gamma |
-
-> Use Draft only when building a Fiori / SAPUI5 application. It is a complex mechanism that other
-> UI frameworks cannot handle easily.
-
-## Programmatic custom logic
-
-Only when declarative annotations aren't enough, write an event handler. Three phases exist
-(runtime-agnostic):
-
-- **before** — input validation that can't be expressed declaratively; reject early before DB writes.
-- **on** — custom actions and functions.
-- **after** — side effects like emitting async events.
-
-Two rules hold for both runtimes:
-
-- Don't write handlers for things the generic service provider already handles.
-- Rely on CAP's intrinsic transaction handling — no manual transactions.
-
-The handler API differs substantially between runtimes. Read the matching reference for full guidance:
-
-- `references/nodejs.md` — `srv.before` / `srv.on` / `srv.after`, `req.reject(code, message)`,
-  intrinsic transactions, the round-trip-minimization pattern.
-- `references/java.md` — `@Before` / `@On` / `@After` with reflection-based event/entity
-  detection, typed `CdsResult<D>` vs untyped `Result`, `ServiceException` vs `messages.error`,
-  the race-condition-safe `.set(field, expr)` update pattern, and more.
-
-## Sample Data
-
-Generate data files with the CLI, never create them manually or invent UUIDs. Let the CLI own the
-keys and foreign keys (so associations and compositions line up reliably), then use AI to fill in
-meaningful domain content.
-
-1. Generate CSVs with keys and foreign keys only:
-   `cds add data --records <Amount> --keys-only`
-   This fills only key columns (including the foreign keys backing associations and compositions),
-   leaving all other columns empty. Because the CLI generates consistent UUIDs and FK references,
-   relationships resolve correctly and you never risk breaking them by hand.
-   Use `--filter <Entity>` to scope to specific entities (case-insensitive substring match; use
-   regex like `books$` to exclude `.texts` compositions).
-2. Fill in the empty non-key columns with realistic, meaningful domain content. Keep the generated
-   header row (column names) and the generated IDs and foreign-key references exactly as-is —
-   never rename headers, and never edit or invent keys/FKs.
-
-**Why `--keys-only`**: hand-editing UUIDs and FKs is error-prone and silently breaks
-associations/compositions. Delegating keys to the CLI and content to AI keeps referential integrity
-intact while still producing realistic data.
-
-**Gotchas**:
-- `--keys-only` requires `--records`; without `--records` you get header-only CSVs regardless.
-- If `--keys-only` is not recognized, the globally installed `@sap/cds-dk` is likely outdated —
-  update it with `npm i -g @sap/cds-dk` and retry.
-- If you omit `--keys-only`, the CLI fills every column with placeholders (e.g. `title-29894036`)
-  that you then replace — keys and FK references must still be left intact.
-
+1. **Model the domain** → `references/cds-modeling.md`
+2. **Expose services via projections** → `references/cds-modeling.md`
+3. **Add constraints declaratively first** → `references/declarative.md`
+4. **Write handlers only where annotations fall short** → `references/custom-logic.md`
+   (+ the runtime file `references/nodejs.md` or `references/java.md`)
+5. **Generate sample data** → `references/sample-data.md`
 
 ## Don't
 
