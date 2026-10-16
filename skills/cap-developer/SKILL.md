@@ -1,6 +1,6 @@
 ---
 name: cap-developer
-description: Expert guidance for building and extending CAP (Cloud Application Programming Model) applications in either Node.js or Java. Covers project initialization, CDS modeling, declarative annotations, and custom handler best practices for both runtimes. Use when building a new CAP app, extending an existing one, or reviewing CAP code for correctness and idioms — regardless of whether the stack is Node.js or Java.
+description: Expert guidance for building and extending CAP (Cloud Application Programming Model) applications in either Node.js or Java. Covers project initialization, CDS modeling, declarative annotations, and custom handler best practices for both runtimes. Use for concrete, self-contained CAP tasks — add an entity or service, write a handler, check an idiom — or as reference material, regardless of whether the stack is Node.js or Java. For a staged, collaborative walkthrough of a whole app, use `cap-guided-dev` instead.
 license: Apache-2.0
 metadata:
   author: cap-team
@@ -13,7 +13,7 @@ Provide correct, lean, idiomatic guidance for CAP development — from project s
 modeling through declarative annotations and programmatic event handlers.
 
 This SKILL.md is a **router**. Each topic lives in its own reference file so it can be loaded and
-cross-referenced on its own. Read only the file(s) the task needs.
+cross-referenced on its own (e.g. by `cap-guided-dev`). Read only the file(s) the task needs.
 
 ## Reference map
 
@@ -77,7 +77,8 @@ cds watch              # start the dev loop (works without a runtime for pure mo
 ```
 
 When the runtime is known upfront, pass `--java` or `--nodejs` to `cds init` (see the
-runtime-specific reference files for details).
+runtime-specific reference files for details). For starting, discovering and stopping
+local servers, see `cap-inner-loop`.
 
 - **Never** run `cds add sample` — it scaffolds a full demo app into the project.
 - Use `cds add tiny-sample` only if the user explicitly wants a minimal starter model.

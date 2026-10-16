@@ -16,6 +16,9 @@ I drive the `cds upgrade` CLI, interpret its findings, and walk the developer
 through each migration item with concrete fix instructions and links to the
 official CAP migration documentation on capire.
 
+> Before upgrading, confirm the toolchain is current with `cap-check-setup` —
+> an outdated Node.js or `@sap/cds-dk` makes upgrade failures hard to read.
+
 ### What `cds upgrade` does
 
 `cds upgrade` is a deterministic command-line tool shipped with `@sap/cds-dk`.

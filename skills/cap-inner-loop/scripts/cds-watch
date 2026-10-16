@@ -1,0 +1,28 @@
+if [ -d "/Applications/iTerm.app" ]; then
+
+for project in "$@"; do
+osascript <<EOF
+tell application "iTerm"
+  activate
+  set newWin to (create window with default profile)
+  tell current session of newWin
+    write text "cd '`pwd`'"
+    write text "cds watch $project"
+  end tell
+end tell
+EOF
+done
+
+else
+
+for project in "$@"; do
+osascript <<EOF
+tell application "Terminal"
+  activate
+  set newTab to (do script "cd '`pwd`'")
+  do script "cds watch $project" in newTab
+end tell
+EOF
+done
+
+fi

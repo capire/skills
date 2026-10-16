@@ -1,0 +1,37 @@
+if [ -d "/Applications/iTerm.app" ]; then
+
+for tty in "$@"; do
+osascript <<EOF
+tell application "iTerm"
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      repeat with aSession in sessions of aTab
+        if tty of aSession is "$tty" then
+          close aWindow
+          return "closed"
+        end if
+      end repeat
+    end repeat
+  end repeat
+end tell
+EOF
+done
+
+else
+
+for tty in "$@"; do
+osascript <<EOF
+tell application "Terminal"
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      if tty of aTab is "$tty" then
+        close aWindow
+        return "closed"
+      end if
+    end repeat
+  end repeat
+end tell
+EOF
+done
+
+fi

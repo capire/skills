@@ -322,11 +322,13 @@ npm add @sap-cloud-sdk/connectivity @sap-cloud-sdk/http-client @sap-cloud-sdk/re
 
 ## Step 7 — Verify with cds watch
 
-Start the app and check the log output:
+Start the app (see `cap-inner-loop` for the server lifecycle) and check the log output:
 
 ```sh
 cds watch
 ```
+
+Then run `cds bindings` to confirm which services are actually up and on which URLs.
 
 **Check the connection line carefully.** You want to see either:
 - `mocking <service-name>` — CAP is auto-mocking in-process (good for dev)
@@ -335,10 +337,12 @@ cds watch
 
 If you see `connect to ... > odata` pointing to a URL but no mock is running
 there, READ requests will fail silently and return empty results. This happens
-when `~/.cds-services.json` has a stale entry from a previous `cds mock` run.
+when the local service registry still holds a stale entry from a previous
+`cds mock` run — check with `cds bindings` (see `cap-inner-loop`).
 Fix by either:
 - Starting the mock: `cds mock <service-name>`
-- Or removing the stale entry so CAP falls back to in-process mocking
+- Or removing the stale registry entry under `~/.cds/services/` so CAP falls
+  back to in-process mocking
 
 Expected: lines like:
 
