@@ -1,6 +1,6 @@
 ---
 name: cap-developer
-description: Expert guidance for building and extending CAP (Cloud Application Programming Model) applications in either Node.js or Java. Covers project initialization, CDS modeling, declarative annotations, and custom handler best practices for both runtimes. Use when building a new CAP app, extending an existing one, or reviewing CAP code for correctness and idioms — regardless of whether the stack is Node.js or Java.
+description: Expert guidance for building and extending CAP (Cloud Application Programming Model) applications in either Node.js or Java. Covers project initialization, CDS modeling, declarative annotations, and custom handler best practices for both runtimes. Use for concrete, self-contained CAP tasks — add an entity or service, write a handler, check an idiom — or as reference material, regardless of whether the stack is Node.js or Java. For a staged, collaborative walkthrough of a whole app, use `cap-guided-dev` instead.
 license: Apache-2.0
 metadata:
   author: cap-team
@@ -13,14 +13,14 @@ Provide correct, lean, idiomatic guidance for CAP development — from project s
 modeling through declarative annotations and programmatic event handlers.
 
 This SKILL.md is a **router**. Each topic lives in its own reference file so it can be loaded and
-cross-referenced on its own. Read only the file(s) the task needs.
+cross-referenced on its own (e.g. by `cap-guided-dev`). Read only the file(s) the task needs.
 
 ## Reference map
 
 | Topic | File | Load when |
 |---|---|---|
 | Domain model + service projections | `references/cds-modeling.md` | Modeling entities/aspects/associations, or exposing them via projections |
-| Declarative annotations (validation, constraints, auth) | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, `@restrict`/`@requires` |
+| Declarative annotations (validation, constraints, flows, auth) | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, status-transition flows, `@restrict`/`@requires` |
 | Custom event handlers | `references/custom-logic.md` | Only when annotations can't express the rule; before/on/after logic |
 | Sample / seed data | `references/sample-data.md` | Generating test data with the CLI |
 | Node.js runtime specifics | `references/nodejs.md` | The project is a CAP Node.js app |
