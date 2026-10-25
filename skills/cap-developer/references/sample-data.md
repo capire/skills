@@ -2,31 +2,35 @@
 
 Read this file when generating test/seed data. Runtime-agnostic.
 
-Generate data files with the CLI, never create them manually or invent UUIDs. Let the CLI own the
-keys and foreign keys (so associations and compositions line up reliably), then use AI to fill in
-meaningful domain content.
+Use **CDS DK 10.2 or later** to generate keys and relationships, then fill in domain content.
+See [adding initial data](https://cap.cloud.sap/docs/guides/databases/initial-data).
 
 ## Workflow
 
-1. Generate CSVs with keys and foreign keys only:
+1. **Generate.** Check `@sap/cds-dk` with `cds --version`, then run:
    `cds add data --records <Amount> --keys-only`
-   This fills only key columns (including the foreign keys backing associations and compositions),
-   leaving all other columns empty. Because the CLI generates consistent UUIDs and FK references,
-   relationships resolve correctly and you never risk breaking them by hand.
-   Use `--filter <Entity>` to scope to specific entities (case-insensitive substring match; use
-   regex like `books$` to exclude `.texts` compositions).
-2. Fill in the empty non-key columns with realistic, meaningful domain content. Keep the generated
-   header row (column names) and the generated keys and foreign-key references exactly as-is —
-   never rename headers, and never edit or invent keys/FKs. Quote strings that contain commas.
+   DK 10.2+ fills primary keys and managed foreign keys, including composition backlinks,
+   leaving other content empty. Enum code lists include every enum value regardless of
+   `--records`, with matching localized `.texts` keys.
+   Check options with `cds add data --help`. Scope with `--filter <Entity>` (case-insensitive
+   substring match; regex `books$` excludes `.texts` compositions).
+2. **Fill and check references.** Preserve headers, generated UUID primary keys, and valid
+   foreign keys. Fill content with realistic data for the intended demos/tests. Verify every
+   foreign key against its target, including compound keys, associations used as keys, and
+   special/unmanaged relationships. Repair references by copying existing target keys, never
+   inventing unrelated UUIDs. Code-list keys must be domain values; if corrected, update all
+   references and matching `.texts` keys together.
+3. **Validate.** Check business rules (dates, currencies, statuses, etc.), deploy, then exercise
+   representative service reads and writes. CSV deployment alone does not validate service rules.
 
-**Why `--keys-only`**: hand-editing UUIDs and FKs is error-prone and silently breaks
-associations/compositions. Delegating keys to the CLI and content to AI keeps referential integrity
-intact while still producing realistic data.
+Quote CSV strings containing commas or line breaks; escape double quotes by doubling them.
 
 ## Gotchas
 
-- `--keys-only` requires `--records`; without `--records` you get header-only CSVs regardless.
-- If `--keys-only` is not recognized, the globally installed `@sap/cds-dk` is likely outdated —
-  update it with `npm i -g @sap/cds-dk` and retry.
-- If you omit `--keys-only`, the CLI fills every column with placeholders (e.g. `title-29894036`)
-  that you then replace — keys and FK references must still be left intact.
+- Without `--records`, `--keys-only` is ignored: ordinary entities get headers only, but DK 10.2+
+  still emits enum code-list rows.
+- **DK 10.1:** ordinary foreign keys remain empty and enum code lists may be incomplete. Upgrade,
+  or copy existing target keys into missing references and complete code lists and `.texts` rows.
+- Unrecognized `--keys-only` usually means an outdated global DK; run `npm i -g @sap/cds-dk`.
+- Without `--keys-only`, content gets generic sample values (e.g. `title-29894036`); apply the
+  same reference and business-rule checks before replacing them.

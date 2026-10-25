@@ -50,9 +50,10 @@ entity; security reveals a missing constraint. That's expected.
 Whenever this skill activates, first establish your CAP documentation source: prefer the CAP
 MCP server if it's available (it's the richest source of truth for CAP APIs), and otherwise
 fall back to capire's LLM docs rather than guessing (see "Documentation source" below).
-Then show the developer the eleven-stage menu using the
-`question` tool so they can pick where to begin or jump to, rather than being marched through
-linearly. Present it as a single question with the stages as options; briefly note which stages
+If the developer already chose a stage, acknowledge it and start there. Otherwise show the
+eleven-stage menu using the host's interactive question tool (`question` in OpenCode,
+`AskUserQuestion` in Claude Code), or a plain-text question if no such tool is available.
+Present it as a single question with the stages as options; briefly note which stages
 already look done if you can tell from the project state (e.g. a `db/schema.cds` exists → domain
 model started).
 
@@ -70,8 +71,8 @@ creating a new project — skip it when the developer already has one.
 ### Free navigation, not a forced march
 
 The developer drives. After finishing the work for a stage, don't silently barrel into the next
-one. Summarize what changed in 2–4 lines, then use the `question` tool to offer the natural next
-moves: continue to the recommended next stage, jump elsewhere, revisit the current stage, or
+one. Summarize what changed in 2–4 lines, then use the available question tool (or plain text) to
+offer the natural next moves: continue to the recommended next stage, jump elsewhere, revisit the current stage, or
 stop. Make the recommended next stage the first option. Always leave room for them to type their
 own direction.
 
@@ -96,10 +97,15 @@ the domain work. When a stage has no dedicated skill, use the inline guidance be
 **After the domain model (stage 2), always generate test data before moving on.** Realistic
 sample data makes every later stage tangible — services return real rows, constraints and
 security rules can be exercised, and `cds watch` shows something meaningful instead of empty
-collections. Follow `cap-developer`'s sample-data workflow (`references/sample-data.md`): generate
-CSVs with keys/foreign keys only (`cds add data --records <n> --keys-only`) so the CLI owns
-referential integrity, then fill
-the non-key columns with meaningful domain content. Never hand-write UUIDs or FKs. Then point the
+collections. Follow `cap-developer`'s sample-data workflow (`references/sample-data.md`). Check the
+**CDS DK version before generating data**: use **10.2 or later** for
+`cds add data --records <n> --keys-only`, which preserves managed association foreign keys,
+including composition backlinks, and emits all enum code-list keys. In DK 10.1, ordinary
+foreign-key columns are left empty; upgrade or populate them by copying existing target keys.
+Keep generated UUID primary keys and valid foreign-key references stable, then fill the remaining
+content columns with meaningful domain data. Verify code-list keys and localized rows, special
+relationships, and business rules; generated keys do not ensure valid dates, currencies, or states.
+Never invent unrelated UUIDs for foreign keys. Then point the
 developer at the generated CSVs (e.g. ``db/data/<namespace>-Books.csv``) and confirm the data
 looks right in `cds watch` before continuing.
 
@@ -146,10 +152,12 @@ Goal: decide how the app participates in the agent/MCP ecosystem. CAP has two of
 plugins for this; pick the direction the developer wants and build the smallest useful slice.
 
 - **Expose CAP services over MCP → `@cap-js/mcp`.** A CDS plugin that turns the app's services
-  into an MCP server so AI agents can query and act on the domain. Add it as a dependency; it
-  auto-exposes services. Configure under `cds.mcp` in `package.json` (e.g. `per_action_tool`,
-  `prefix`, `format`), and guide the agent with the `@mcp.instructions` annotation on a service
-  (supports i18n refs). Docs: `cap.cloud.sap/docs/guides/protocols/mcp`. **Caveat:** the SAP API
+  into an MCP server so AI agents can query and act on the domain. Add it as a dependency and
+  explicitly expose the intended services with `@mcp`, preserving any existing protocols.
+  Configure under `cds.mcp` in `package.json` and guide the agent with `@mcp.instructions`
+  (supports i18n refs). Discover the served tool schemas and supported operations rather than
+  assuming that every bound action or CRUD operation is available.
+  Docs: `cap.cloud.sap/docs/guides/ai/cap-mcp`. **Caveat:** the SAP API
   Policy still applies to data exposed over MCP — confirm the use case is allowed before exposing
   SAP data.
 - **Build agents inside CAP → `@cap-js/agents`.** A CDS plugin for building agents on the
@@ -167,15 +175,20 @@ model: use CDS-bound credentials / destinations, never hardcoded keys.
 
 Goal: layer access control declaratively before reaching for code. Sequence:
 
-1. **Authentication strategy** — for local dev, `cds add xsuaa` and mocked users in
-   `.cdsrc.json`; for production, XSUAA or IAS. Confirm which before wiring anything.
+1. **Authentication strategy** — for local dev, use mocked authentication and configure test
+   users in `.cdsrc.json` or `package.json`; XSUAA scaffolding is not required for local mock
+   authentication. For production, choose XSUAA or IAS and add the corresponding feature.
+   Confirm the intended strategy before wiring anything.
 2. **Authorization, declarative first** — protect services/entities with `@requires: 'role'` and
    fine-grained rules with `@restrict: [{ grant, to, where }]`. Instance-based restrictions
    (`where: 'createdBy = $user'`) cover most row-level cases without a handler.
 3. **Only then, code** — instance-level checks that can't be expressed declaratively go in a
    `before` handler that rejects early.
 
-Never hardcode roles, tenant IDs, or credentials. For the authorization annotation details,
+Declare role names in CDS annotations and local test-user configuration, rather than hardcoding
+identity checks in handlers. Keep credentials and tenant-specific identities out of source code.
+Protect every exposed entity and action/function as appropriate; a custom handler reading the DB
+directly does not inherit a service entity's authorization checks. For the annotation details,
 lean on `cap-developer`'s `references/declarative.md` (`@restrict`/`@requires` section) and verify
 specifics against the CAP docs (MCP or capire). Match the depth to the app — a demo doesn't need production IAS wiring.
 
@@ -192,38 +205,46 @@ is an enum, a derived value is a
 calculated element, and a huge range of conditional and cross-field rules fit
 `@assert: (case when … end)` (see below). A handler
 is the *last* resort, justified only when you can name the specific reason no annotation fits
-(e.g. the check needs a DB lookup or an external call). This isn't stylistic: declarative
-constraints are enforced consistently across OData, drafts, and batch requests, are visible in
-metadata, and can't be accidentally bypassed by another handler — a hand-written `before` check
-gets none of that for free. When you do fall back to code, say why in one line so the developer
+(e.g. an external call, a side effect, or action-specific validation that the available
+annotations don't cover). A DB lookup alone is not a reason: `@assert` can query associated rows.
+Declarative constraints centralize validation in the generic runtime and selected annotations
+also contribute UI metadata. Verify their scope for the chosen runtime/version and write paths:
+a parent constraint does not automatically run when only a child is written, or vice versa.
+Draft writes can persist invalid data with validation messages so users can correct it later.
+When you do fall back to code, say why in one line so the developer
 can sanity-check the call. Confirm the full constraint list with the developer before implementing.
 
 **Don't underestimate `@assert: (case when … end)`** — it's the workhorse that eliminates most
-"I need a handler for this" cases. It's an expression evaluated per row over that row's own
-elements; the row is rejected when the expression yields a falsy / null result, so you write it
-to *return the thing that must hold*. Because it's plain CDS/SQL-style logic, it covers rules that
-feel procedural but aren't:
+"I need a handler for this" cases. Write a SQL-style `case` expression that returns an **error
+message or i18n key when a rule is violated**, and **null when the row is valid**. Omitting
+`else` yields null when no `when` branch matches. Do not use a bare Boolean assertion or return
+the field's value as if this were a truth test. Examples:
 
-- **Conditionally required field** — when resolved, `resolvedAt` must be set (the verified
-  pattern): `@assert: (case when status = 'resolved' then resolvedAt end)`
+- **Conditionally required field** — when resolved, `resolvedAt` must be set:
+  `@assert: (case when status = 'resolved' and resolvedAt is null then 'ASSERT_RESOLVED_AT_REQUIRED' end)`
 - **Field-vs-field comparison** — end must not precede start:
-  `@assert: (endDate >= startDate)`
+  `@assert: (case when endDate < startDate then 'ASSERT_ENDDATE_BEFORE_STARTDATE' end)`
 - **Value depends on another field** — a discount is only valid on sale items:
-  `@assert: (case when discount > 0 then onSale end)`
+  `@assert: (case when discount > 0 and (onSale is null or onSale = false) then 'ASSERT_DISCOUNT_REQUIRES_SALE' end)`
 
 The key mental shift: reach for `case when` *before* concluding a rule is "too complex for
 annotations." It can reference any elements on the *same* entity and use the usual comparison,
-boolean, and null operators. What it *can't* do is look at other rows or other entities, call out
-to services, or run async work — those are the genuine handler cases. Pair it with a message
-annotation / `i18n` key so the rejection is user-readable. The exact expression syntax for a
-tricky rule is easy to get subtly wrong — confirm it against the CAP docs (MCP or capire; search
+boolean, and null operators. It can also compare with associated entities through path expressions
+and inspect related sets using `exists` with infix filters. It cannot call an external service
+or perform arbitrary asynchronous application work. Put the error message or plain i18n key in
+the `then` branch; resolve keys from `_i18n/messages.properties`. Handle null explicitly in
+conditional-required checks, and use `@mandatory` for unconditionally required fields.
+The exact expression syntax for a tricky rule is easy to get subtly wrong — confirm it against
+the CAP docs (MCP or capire; search
 `@assert expression case when`) or `cap-developer`'s `references/declarative.md` rather than
 guessing, and, per stage 5, prove it with a quick test.
 
 ### Stage 5 — Custom handlers (test-driven)
 
-You only arrive here for logic that genuinely can't be declarative (see stage 4) — custom actions
-and functions, side effects, checks needing a lookup or external call. Because these are the
+You only arrive here for logic that the available declarative features don't cover (see stage 4)
+— custom action/function implementations, side effects, external calls, or validation that needs
+a specific event boundary. Check generic status-flow handlers before implementing lifecycle actions;
+associated-row lookups alone do not justify a handler. Because these are the
 riskiest, least-generic parts of the app, build them **test-first**:
 
 1. **Write the test before the handler.** Capture the behaviour the developer described as an
@@ -232,15 +253,18 @@ riskiest, least-generic parts of the app, build them **test-first**:
    effect for `after`). Use `cds.test` (see `cap-developer`'s runtime reference —
    `references/nodejs.md` / `references/java.md` — for the exact Node/Java shape). Search the MCP
    docs if you're unsure of the current testing API rather than guessing.
-2. **Run it and watch it fail.** A test that passes before you've written the handler is testing
-   nothing — running it red first proves it actually exercises the new behaviour and pins down the
-   contract you're about to implement.
+2. **Run it and inspect the result.** For missing behavior, the test must fail for the intended
+   business reason, not missing actions, invalid fixture IDs, authentication, or setup errors.
+   If it already passes, check whether annotations or existing handlers satisfy the contract;
+   do not add redundant code merely to force a red-then-green sequence.
 3. **Implement the handler** in the right phase (`before` for early validation/rejection, `on` for
    custom actions/functions, `after` for side effects), following `cap-developer`'s
    `references/custom-logic.md` and its runtime file. Don't reimplement what the generic provider
    already does, and rely on CAP's intrinsic transactions.
-4. **Run the test again until green**, then show the developer both the handler and the passing
-   test as `file_path:line_number` references.
+4. **Run the tests again until green.** For validation, cover both a rejected request and an
+   allowed request, including the expected state/result, so an unconditional rejection cannot
+   pass the suite. Use valid, isolated fixtures. Then show the developer the changed files and
+   passing tests as `file_path:line_number` references.
 
 Working test-first here matters more than elsewhere: handler logic is where subtle,
 app-specific bugs hide, and a red-then-green test is the cheapest way to prove the handler does
@@ -306,8 +330,8 @@ value changes rather than rewriting everything.
 
 ## Working style
 
-- One stage in focus at a time; small, reviewable diffs; check in via the `question` tool at
-  stage boundaries.
+- One stage in focus at a time; small, reviewable diffs; check in via the available question tool
+  or plain text at stage boundaries.
 - Prefer showing real `cds watch` / CLI output over describing what "should" happen.
 - Reuse `cap-developer`, `cap-add-remote-service`, and `cap-upgrade` as the source of truth for
   their domains — load and follow them rather than paraphrasing here.
