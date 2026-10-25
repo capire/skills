@@ -24,7 +24,7 @@ insufficient (see `custom-logic.md`).
 | Audit fields | `: managed` aspect |
 | Draft support | `@odata.draft.enabled` |
 | Derived / computed values | Calculated elements: `total : Decimal = price * quantity;` |
-| Status-transition workflow (approve/reject/etc.) | `@flow.status` + `@from` / `@to` on actions pre-GA / Gamma |
+| Status-transition workflow (approve/reject/etc.) | `@flow.status` + `@from` / `@to` on bound actions — see below |
 
 > Use Draft only when building a Fiori / SAPUI5 application. It is a complex mechanism that other
 > UI frameworks cannot handle easily.
@@ -110,6 +110,65 @@ draft behavior separately from active writes: [draft PATCH can persist invalid d
 Not every assertion is represented in OData metadata. Custom handlers still participate in the
 service request pipeline, but additional direct database operations do not automatically inherit
 the service entity's validation or authorization checks.
+
+## Status-transition flows
+
+Use [status-transition flows](https://cap.cloud.sap/docs/guides/services/status-flows) for lifecycle
+actions before writing custom state checks or updates. Support is built into CAP Node.js; in Java,
+add `com.sap.cds:cds-feature-flow` to `srv/pom.xml` with `runtime` scope, using the project's CAP BOM.
+Check support in the installed runtime when working with older projects.
+
+This complete CDS example declares the status enum, default state, service projection, and actions:
+
+```cds
+namespace flow;
+using { cuid } from '@sap/cds/common';
+
+type TravelStatus : String enum {
+  Open = 'O'; Accepted = 'A'; Rejected = 'X';
+}
+entity Travels : cuid {
+  title : String;
+  @readonly status : TravelStatus default #Open;
+}
+
+@path: '/travel'
+service TravelService {
+  @flow.status: status
+  entity Travels as projection on flow.Travels actions {
+    @from: #Open @to: #Accepted action acceptTravel();
+    @from: #Open @to: #Rejected action rejectTravel();
+  }
+}
+```
+
+- `@flow.status` identifies the entity's status element. Use enum symbols in `@from`/`@to`;
+  stored/API values here are `O`, `A`, and `X`. A managed association to a code list with a single
+  enum key named `code` is also supported.
+- `@from` accepts one state or an array. CAP rejects other entry states with **409 Conflict**.
+  After successful action execution, `@to` updates the persisted status automatically; these
+  pure transitions need no custom action implementation.
+- `@from` alone gates an action without changing status. `@to: $flow.previous` restores the
+  tracked previous state, useful for reversible blocks entered from multiple states.
+- Add custom `before` handlers for extra preconditions, `on` handlers for action-specific work,
+  or `after` handlers for conditional target states. Keep generic entry checks and status updates.
+- CAP generates operation-availability and status side-effect annotations for Fiori elements.
+- Flows control **bound actions**, not CRUD/DRAFT operations. Use `@readonly` plus a default to
+  keep clients from setting status directly; read-only input is ignored. Flow actions on
+  draft-enabled entities run only on **active** instances. Authorization remains a separate concern.
+
+**Test through the service with isolated fixtures:**
+
+| Request | Expected result |
+|---|---|
+| Accept a new Open travel | Success; subsequent read returns `status: 'A'` |
+| Reject a separate Open travel | Success; subsequent read returns `status: 'X'` |
+| Repeat accept, reject an Accepted travel, or accept a Rejected travel | `409`; persisted state unchanged; custom action work not executed |
+| Supply status on CREATE or PATCH | Read-only status ignored; default/current state retained |
+| Fail an additional precondition | Expected business error; state unchanged; custom action work not executed |
+
+Also test every allowed entry state for multi-state `@from`; for `$flow.previous`, verify each
+route into and out of the blocked state. If drafts are enabled, distinguish active from draft calls.
 
 ## Authorization — `@requires` / `@restrict`
 
