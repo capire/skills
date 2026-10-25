@@ -243,8 +243,9 @@ guessing, and, per stage 5, prove it with a quick test.
 
 You only arrive here for logic that the available declarative features don't cover (see stage 4)
 — custom action/function implementations, side effects, external calls, or validation that needs
-a specific event boundary. Check generic status-flow handlers before implementing lifecycle actions;
-associated-row lookups alone do not justify a handler. Because these are the
+a specific event boundary. Before implementing lifecycle actions, follow the "Status-transition
+flows" section in `cap-developer`'s `references/declarative.md`; associated-row lookups alone do
+not justify a handler. Because these are the
 riskiest, least-generic parts of the app, build them **test-first**:
 
 1. **Write the test before the handler.** Capture the behaviour the developer described as an

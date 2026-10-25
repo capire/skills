@@ -20,7 +20,7 @@ cross-referenced on its own (e.g. by `cap-guided-dev`). Read only the file(s) th
 | Topic | File | Load when |
 |---|---|---|
 | Domain model + service projections | `references/cds-modeling.md` | Modeling entities/aspects/associations, or exposing them via projections |
-| Declarative annotations (validation, constraints, auth) | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, `@restrict`/`@requires` |
+| Declarative annotations (validation, constraints, flows, auth) | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, status-transition flows, `@restrict`/`@requires` |
 | Custom event handlers | `references/custom-logic.md` | Only when annotations can't express the rule; before/on/after logic |
 | Sample / seed data | `references/sample-data.md` | Generating test data with the CLI |
 | Node.js runtime specifics | `references/nodejs.md` | The project is a CAP Node.js app |
