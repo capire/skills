@@ -1,14 +1,16 @@
 # Programmatic custom logic — event handlers
 
 Read this file only when declarative annotations (`declarative.md`) aren't enough. Custom
-handlers are for custom actions/functions, side effects, and checks that need a DB lookup or an
-external call.
+handlers are for custom action/function implementations, side effects, external calls, and
+validation whose required event boundary is not covered by available annotations or generic handlers.
 
 ## When a handler is justified
 
 Reach for a handler only when you can name the specific reason no annotation fits — e.g. the check
-needs a DB lookup, an external call, or async work. Most rules people reach for handlers on are
-actually annotations (see `declarative.md`).
+needs an external call, arbitrary async work, or an action-specific precondition. A DB lookup
+alone is not a reason: `@assert` supports association paths and `exists` over related rows.
+Check whether the declarative rule is evaluated on every required write path and at the right
+event boundary. Most input-validation rules can stay declarative (see `declarative.md`).
 
 Two rules hold for both runtimes:
 
