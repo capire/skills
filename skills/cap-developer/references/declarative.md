@@ -13,7 +13,7 @@ insufficient (see `custom-logic.md`).
 |---|---|
 | Input validation (format) | `@assert.format: '...'` |
 | Input validation (range) | `@assert.range: [min, max]` |
-| Input validation (enum) | `@assert.range enum { val1; val2; }` |
+| Input validation (enum) | `priority : String @assert.range enum { low; medium; high; };` — the enum alone does not enforce input values |
 | Target Entity exists check | `@assert: (case when not exists <assoc> then '...' end)` |
 | Cross-field / exists check | `@assert: (case when ... then '...' end)` |
 | Uniqueness | `@assert.unique.<name>: [ ... ]` on a DB entity; `@assert: (case when exists others[...] then '...' end)` for custom validation — see below |
