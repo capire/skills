@@ -20,7 +20,7 @@ cross-referenced on its own (e.g. by `cap-guided-dev`). Read only the file(s) th
 | Topic | File | Load when |
 |---|---|---|
 | Domain model + service projections | `references/cds-modeling.md` | Modeling entities/aspects/associations, or exposing them via projections |
-| Declarative annotations (validation, constraints, flows, auth) | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, status-transition flows, `@restrict`/`@requires` |
+| Declarative annotations and status flows | `references/declarative.md` | Adding validation, mandatory/readonly/computed values, `@restrict`/`@requires`, or lifecycle actions with `@flow.status` |
 | Custom event handlers | `references/custom-logic.md` | Only when annotations can't express the rule; before/on/after logic |
 | Sample / seed data | `references/sample-data.md` | Generating test data with the CLI |
 | Node.js runtime specifics | `references/nodejs.md` | The project is a CAP Node.js app |
@@ -97,8 +97,8 @@ runtime-specific reference files for details).
 
 - Write handlers for things the generic service provider already handles
 - Hardcode tenant IDs, system IDs, or credentials anywhere
-- Put user-facing strings inline — use `_i18n/` bundles
+- Put user-facing strings inline — use `_i18n/` bundles for CDS/Node.js messages and Spring
+  `src/main/resources/messages.properties` bundles for Java handler messages
 - Run `cds add sample`
 
-Runtime-specific don'ts (e.g. `await` inside `cds.on('served', ...)` in Node) live in the
-respective reference file.
+Runtime-specific lifecycle and API caveats live in the respective reference file.
