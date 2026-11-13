@@ -52,6 +52,16 @@ for unconditionally required fields and explicit null checks for conditional req
 See the official [constraint syntax and association examples](https://cap.cloud.sap/docs/guides/services/constraints#assert-constraint)
 and [localized messages](https://cap.cloud.sap/docs/guides/services/constraints#localized-messages).
 
+**Common inversion mistake:** a bare comparison such as `(endDate >= startDate)` returns a
+non-null Boolean for both true and false, so both are treated as errors. Likewise,
+`case when status = 'resolved' then resolvedAt end` rejects rows with a timestamp while
+accepting a missing one. Detect the violation in `when` and return its message in `then`.
+
+No feature flag is needed to enable supported `@assert` validation. In CDS 10.2,
+`cds.features.compile_for_assert` is an optional compiler pass for collecting/merging assertions
+along projection chains, not a runtime validation switch. That pass expects `case … end`
+expressions; do not use it to make a bare Boolean assertion valid.
+
 ### Target-existence checks
 
 `@assert.target` is the built-in existence check for managed to-one association targets.
