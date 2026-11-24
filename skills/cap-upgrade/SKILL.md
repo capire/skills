@@ -21,28 +21,26 @@ official CAP migration documentation on capire.
 `cds upgrade` is a deterministic command-line tool shipped with `@sap/cds-dk`.
 It is the foundation this skill works on top of.
 
-With `--fix` it:
+It proposes dependency updates and installation interactively. The target major
+comes from the running cds-dk. `--fix` applies Java OpenRewrite recipes;
+without it, recipes run as a dry-run.
 
-- Updates CDS-related dependencies in `package.json` to the target version
-- Runs `npm install`
-- Rebuilds the project with the new compiler
-- Sets compatibility flags that preserve previous behaviour where applicable
+Use `cds upgrade --help` to discover the installed command's options and follow
+its actual prompts and output. This skill consumes its machine-readable report.
 
-Without flags it scans only — no changes to project sources or dependencies
-(the report files below are still written).
+With `--report`, findings or manual-review rules produce files in `.cds-upgrade/`:
 
-With `--dry` nothing is written to disk at all — all output goes to stdout.
+- `report.yaml` – structured per-rule matches with file positions, guidance,
+  compat flags, OpenRewrite recipes, and coverage signals (for AI consumption)
+- `report.md` – human-readable report with TOC, summary tables grouped by
+  capire section, and detailed findings with migration body and locations
 
-In every mode it scans the project for breaking-change patterns and produces:
-
-- `findings.json` — structured per-rule matches with file positions, guidance,
-  severity, compat flags, OpenRewrite recipes, and coverage signals
-- `UPGRADE_REPORT.md` — human-readable report grouping findings by scope
-- `UPGRADE_OVERVIEW.md` — short summary with scan numbers and quick wins
+The console groups findings by capire section, collapsing large match lists to
+counts. Verify the run outcome and report freshness before interpreting results.
 
 ### What this skill adds
 
-The CLI's outputs are dense — many rules, many matches per rule, many of which
+The CLI's outputs are dense – many rules, many matches per rule, many of which
 may be false positives in any given codebase. This skill:
 
 - Filters false positives using per-rule `guidance` and generic FP rules
@@ -53,68 +51,84 @@ may be false positives in any given codebase. This skill:
 
 ## Version routing
 
-Before starting any workflow, detect the current CDS major version:
+Before starting a fresh run, inspect the toolchain:
 
 ```sh
 cds version
 ```
 
-Parse the `@sap/cds` line (e.g. `@sap/cds: 9.8.0`). Extract the major number.
+Use the running `@sap/cds-dk` major as the command's effective target. Determine
+the project's current version from dependency declarations and lock files,
+including workspace/sidecar packages, or `cds.services.version` in Java POMs.
+The displayed `@sap/cds` version alone may belong to the toolchain rather than
+the project. Resolve any difference between the requested and tool target before
+running an upgrade.
+
+### If `cds version` fails
+
+If the command errors (TypeError, "command not found", stack trace), ask the
+developer to fix their `cds` installation. An existing report can still be interpreted.
+With the developer's agreement, use a pinned fallback:
+`npx --package @sap/cds-dk@<version> -- cds upgrade --report`.
+
+### Routing table
 
 | Current major | Target | Workflow |
 |---|---|---|
-| < 9 | Ask the developer: "What target version? (9 or 10)" | If target < 10 → **Manual upgrade path** (appendix). If target = 10 → multi-major: upgrade to 9 first (manual path), then run `cds upgrade` for 9→10. |
-| 9 | 10 (default) | **Main workflow** (Steps 0–6 below) |
-| 10 | 10 (re-check) | **Mode C** (see Trigger modes below) |
+| Earlier major | Target < 10 | Manual upgrade path |
+| Earlier major | Tool target ≥ 10 | Main workflow; cover intervening changes using the manual appendix when needed |
+| On target ≥ 10 | Same major | Mode C (re-check) |
 
 ## Trigger modes
 
 ### Mode A – Fresh run
 
 The developer asks to upgrade (e.g. "migrate my project", "run cds upgrade").
-Run `cds upgrade --fix` from scratch:
+Follow the main workflow from Step 0:
 
 1. Verify preconditions (Step 0)
-2. Run `cds upgrade --fix` (Step 1) – upgrades dependencies AND scans
+2. Run `cds upgrade --report` interactively (Step 1); add `--fix` only for approved Java recipe application
 3. Read and interpret output (Steps 2–5)
 4. Apply manual fixes, review compat flags (Step 6)
 
 ### Mode B – Existing report
 
-The developer already ran `cds upgrade` and has `UPGRADE_REPORT.md` and/or
-`findings.json` in the project root. This is the common case when:
+The developer already ran `cds upgrade` and has `.cds-upgrade/report.yaml`
+in the project. This is the common case when:
 
 - The developer ran the tool first and now wants help interpreting findings
 - A teammate, IDE integration, or CI job produced the report
 - A previous session ended after Step 1 and is being resumed
 
-**Detection:** Check if `UPGRADE_REPORT.md` or `findings.json` exists in the
-project root. If present, check whether any source file tracked by the project
-has been modified after `.cdsupgrade.json` was written. If no relevant changes
-occurred, reuse the existing report. Otherwise, suggest re-running `cds upgrade`.
+Check `project.root`, file modification times, the corresponding Markdown report's
+generation time when available, and relevant project changes. YAML has no generation
+timestamp or dependency-install status. If freshness is uncertain, label the report
+as historical and arrange a new run before claiming current coverage.
 
-Skip to Step 2 (Read the report).
+Skip execution and enter Step 2. Establish remaining work from project state and
+run results. If only Markdown is available, interpret it as human guidance;
+obtain current YAML before the structured analysis workflow.
 
 ### Mode C – Already on target (re-check)
 
 The project already upgraded to CDS 10 but may have:
 - Unresolved findings from a previous run
-- Compat flags set by `--fix` that should eventually be removed
+- Compat flags that should eventually be removed
 - New migration rules added in a cds-dk patch
 
-Run `cds upgrade` to scan for remaining migration items. If
-`UPGRADE_REPORT.md` or `findings.json` already exist and are recent
-(Mode B detection applies), skip directly to Step 2.
+Run `cds upgrade --report` interactively to check remaining migration items;
+dependency updates may still be proposed. If
+`.cds-upgrade/report.yaml` already exists and is current (Mode B detection
+applies), skip directly to Step 2.
 
 ### Out of scope
 
 This skill assumes a developer-type environment where `cds upgrade` can run
-(globally installed cds-dk with upgrade support, or via `npx @sap/cds-dk@latest`) and agent
-capabilities are present. It does not cover:
+and agent capabilities are present. It does not cover:
 
-- **NO-AI mode** – if the developer runs `cds upgrade` without an AI agent,
-  `UPGRADE_REPORT.md` is the human deliverable. The skill is unnecessary.
-- **CI / headless** – `findings.json` can be consumed by a custom pipeline
+- **NO-AI mode** – if the developer runs `cds upgrade --report` without an AI
+  agent, `.cds-upgrade/report.md` is the human deliverable. The skill is unnecessary.
+- **CI / headless** – `.cds-upgrade/report.yaml` can be consumed by a custom pipeline
   (e.g. SARIF conversion for IDE Problems Panel). The skill is invoked only
   when an agent walks a developer through findings interactively.
 
@@ -122,14 +136,14 @@ capabilities are present. It does not cover:
 
 ## Load the relevant workflow
 
-Based on the version routing above, load **exactly one** of the following files
+Based on the version routing above, select one of the following files
 from this skill's directory and follow its instructions:
 
 | Scenario | File to load |
 |----------|-------------|
-| Mode A, B, or C (target is CDS 10, or already on 10) | [`workflow-cds10.md`](workflow-cds10.md) |
-| Manual upgrade path (target < 10, or first leg of multi-major) | [`manual-upgrade.md`](manual-upgrade.md) |
+| Mode A, B, or C (tool target ≥ 10) | [`workflow-cds10.md`](workflow-cds10.md) |
+| Manual upgrade path (target < 10) | [`manual-upgrade.md`](manual-upgrade.md) |
 
-**Do not load both.** Only the file matching the detected scenario is relevant.
-After loading, follow that file's instructions from the beginning.
-
+Load the selected workflow; consult the manual appendix additionally when an
+upgrade crosses earlier majors. For an existing report, enter at Step 2 rather
+than repeating command execution.

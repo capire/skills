@@ -2,7 +2,7 @@
 
 This file contains the workflow for upgrading between CDS versions below 10
 (e.g. 7→8, 8→9, or minor/patch updates within the same major).
-It is loaded by the skill router in SKILL.md when `cds upgrade` is not available.
+Use it for targets below CDS 10 or for intervening changes in a multi-major upgrade.
 
 ---
 
@@ -11,9 +11,10 @@ It is loaded by the skill router in SKILL.md when `cds upgrade` is not available
 Use this section when the target version is below CDS 10 (e.g. upgrading from
 7 to 8, or 8 to 9).
 
-For multi-major jumps (e.g. 7→10), upgrade one major at a time. Complete each
-step and verify before proceeding to the next. Once on CDS 9, switch to the
-main workflow (Steps 0–6) for the 9→10 leg.
+For multi-major jumps, cover each intervening major's changes and verify the
+affected behavior. Use a staged upgrade when it helps isolate failures.
+For a tool target of CDS 10 or later, use the main workflow
+and consult this appendix for earlier changes.
 
 ### M1 – Detect current versions
 
@@ -30,25 +31,22 @@ Check `package.json` for declared dependency ranges – pinned versions
 
 ### M2 – Compare against latest
 
-Check the latest published version for each CAP package in the project's
-`package.json`:
+Select versions within the agreed target major, not the unqualified `latest` tag.
+Check available versions for packages in the project's `package.json` and their
+peer-dependency compatibility. For CDS packages, constrain the query to the target:
 
 ```sh
-npm view @sap/cds version
-npm view @sap/cds-dk version
-npm view @sap/cds-compiler version
+npm view @sap/cds@<target-major> version
+npm view @sap/cds-dk@<target-major> version
 ```
 
 Also check database plugins and other CAP packages the project uses.
 Only check packages that are actually in the project's `package.json` – skip
-packages the project doesn't use:
+packages the project doesn't use. For each candidate database/plugin version,
+inspect its peer dependencies before selecting it:
 
 ```sh
-npm view @cap-js/sqlite version
-npm view @cap-js/hana version
-npm view @cap-js/postgres version
-npm view @sap/cds-mtxs version
-npm view @cap-js/cds-test version
+npm view <package>@<candidate-version> peerDependencies
 ```
 
 Classify each upgrade:
@@ -57,7 +55,7 @@ Classify each upgrade:
 |---|---|---|
 | Same major | Higher minor/patch | **Minor/patch** – safe, `npm update` |
 | One major behind | Next major | **Major** – has breaking changes |
-| Two+ majors behind | Latest | **Multi-major** – upgrade one at a time |
+| Two+ majors behind | Agreed target | Multi-major – cover intervening changes; staged migration optional |
 
 Present a summary table to the developer:
 
@@ -76,14 +74,14 @@ Package              Installed   Latest   Upgrade
 
 ```sh
 npm update
-npm install -g @sap/cds-dk@latest
+npm install -g @sap/cds-dk@<selected-version>
 ```
 
 If `package.json` has pinned versions (no `^`), `npm update` won't upgrade
 anything. Update explicitly instead:
 
 ```sh
-npm install @sap/cds@latest @cap-js/sqlite@latest @cap-js/hana@latest
+npm install @sap/cds@<selected-version>
 ```
 
 #### Major version upgrade
@@ -98,7 +96,7 @@ npm install -g @sap/cds-dk@<target-major>
 Upgrade database plugins and other CAP packages to their compatible versions:
 
 ```sh
-npm install @cap-js/sqlite@latest @cap-js/hana@latest
+npm install <used-package>@<compatible-version>
 ```
 
 For a clean dependency state:
@@ -205,8 +203,8 @@ For local SQLite, `cds watch` recreates the database automatically.
   server startup (`cds.test()`), CRUD on main entities, custom handlers, and
   authorization scenarios.
 - After reaching CDS 9, use the main workflow (Steps 0–6 via `cds upgrade`)
-  for the CDS 10 migration – it provides deterministic detection, automated
-  compat-flag setting, and structured findings.
+  for the CDS 10 migration – it provides deterministic detection and structured
+  findings. Compat flags, where still supported, are set by the developer or agent.
 
 ### Output format
 
@@ -226,7 +224,7 @@ Upgrade Type: minor (no breaking changes expected)
 Actions Taken
 -------------
 ✅ npm update – all local packages upgraded
-✅ npm install -g @sap/cds-dk@latest – global CLI upgraded
+✅ npm install -g @sap/cds-dk@<selected-version> – global CLI upgraded
 ✅ cds watch – server starts successfully
 ✅ npm test – all tests pass
 
