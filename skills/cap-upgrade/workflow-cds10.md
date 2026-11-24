@@ -20,16 +20,16 @@ explicitly told to fall back (see Step 1 failure handling).
 - **Overview first, then ask.** After reading the tool's output (Step 2),
   present a compact overview to the developer. Then ask: "Shall I proceed
   with the detailed analysis?" Only proceed with write-operations (applying
-  fixes, modifying source files) after explicit confirmation. Upgrade prompts
-  before this overview need their own approval (Step 1). If the developer
+  fixes, modifying source files) after explicit confirmation. Approval for detailed
+  analysis does not select fixes for application (Step 6). If the developer
   declines analysis, point to the current report when one exists.
 - **Numbered choices.** When asking the developer a question with discrete
   options, label each option with a single letter (`a)`, `b)`, …) so the
   developer can respond with one character.
-- **Parallelise independent work.** These steps have no cross-dependencies and
-  can run in parallel: Step 2.5 context reads (`package.json`, `.cdsrc.json`,
-  structure); Step 3 per-rule FP-verification searches; Step 4 coverage-incomplete
-  searches; Step 5a manual-review quick checks.
+- *Parallelise independent work.* Gather Step 2.5 context before Step 3.
+  Per-rule FP checks (Step 3), follow-up searches (Step 4), and manual-review
+  quick checks (Step 5a) may run in parallel when their inputs are ready;
+  each follow-up search waits for that rule's FP result.
 
 ### Error handling (stderr)
 
@@ -118,9 +118,9 @@ retrying.
 
 ---
 
-## Step 1 – Run the interactive upgrade
+## Step 1 – Run the analysis
 
-For a fresh run or re-check, use:
+For a fresh run or re-check:
 
 ```sh
 cds upgrade --report
@@ -134,25 +134,28 @@ Do not default to `npx @sap/cds-dk@<version>` as the primary path – always
 prefer the developer's own `cds` binary. npx is acceptable as a last resort
 if the developer explicitly agrees.
 
-Add `--fix` when Java recipe application is approved; otherwise review the dry-run.
+This invocation analyses the current project without applying dependency updates,
+removals, or installation. Java OpenRewrite is skipped; inspect
+`openRewriteSkipped` rather than treating missing recipe findings as a clean Java
+migration. The loaded CDS/compiler may still be the old version; target validation
+requires the intended dependencies and a new process after approved changes.
 
-Follow the installed tool's prompts. If the agent cannot operate an interactive
-terminal, have the developer run the command and return its output. Do not pipe
-blanket answers into it or forward the skill's lettered choices to yes/no prompts.
-If the command stops at a prompt, arrange interactive execution before continuing
-with analysis.
+If the installed command aborts before analysis because there is no TTY, it lacks
+this analysis path. Report that outcome and resolve the tool version with the
+developer before retrying; preserve existing reports as historical.
 
-Track which updates and installations actually completed. A declined install
-can leave analysis using old dependencies; a failed install may still be followed
-by analysis. Do not infer success from a final summary or accepted prompt.
+For an interactive run supplied by the developer, track which updates and
+installations actually completed. A declined install can leave analysis using old
+dependencies; a failed install may still be followed by analysis. Do not infer
+success from a final summary or accepted prompt.
 
 **Failure handling:**
 
 - Resolve the actual reported failure before retrying; distinguish a declined
   prompt from a prerequisite or installation error.
-- Read analysis warnings from output and the current Markdown report when
-  available. A warnings-only run may not write a report; missing files do not
-  establish successful analysis.
+- Read analysis warnings as described in Step 2. Missing reports after `--report`
+  require checking whether analysis
+  completed and which tool version ran.
 
 ---
 
@@ -160,14 +163,13 @@ by analysis. Do not infer success from a final summary or accepted prompt.
 
 Mode B enters here without running Step 1. For any entry, verify report provenance
 as described in SKILL.md. After a new run, confirm files were created or updated
-by that run; old files can remain when analysis produces no report or stops early.
+by that run, even for zero findings. An early failure or an older tool can leave
+previous reports in place.
 
 If there is no fresh YAML, present the run outcome and any available warnings.
-Verified successful analysis with no findings, no manual-review rules, and no
-unresolved warnings can finish without a report; do not retry merely to generate
-empty YAML. "No issues found" alone does not verify these conditions. Otherwise,
-keep old reports historical and resolve the incomplete run or unavailable
-diagnostics before claiming coverage or entering structured analysis.
+Keep old reports historical and resolve the incomplete run, tool version, or
+unavailable diagnostics before claiming coverage or entering structured analysis.
+"No issues found" alone does not establish complete coverage or target compatibility.
 
 For Markdown-only input, offer a labelled human-guidance overview and ask whether
 to obtain YAML for structured analysis. This limited interpretation does not
@@ -186,9 +188,12 @@ been considered. Then ask whether to proceed with detailed analysis.
 ### `.cds-upgrade/report.md` (human-readable detail)
 
 The report contains a Table of Contents, Summary tables grouped by capire
-section, and Details with per-finding body and match locations. Do not read
-this file for structured analysis – the developer can open it directly. Read it
-for Markdown-only guidance or its generation header to establish freshness. Reference it
+section, and Details with per-finding body and match locations. YAML remains the
+primary analysis source. Read the Markdown generation header to establish freshness
+when needed. If a fresh run reports warnings, read only its `Analysis Warnings`
+section; without warnings, no additional Markdown read is needed. When reusing
+reports without the original console output, search for that section and read it
+if present. Read the full report only for Markdown-only guidance. Reference it
 in your output: "Full report: `.cds-upgrade/report.md`"
 
 ### `.cds-upgrade/report.yaml` (full detail – read for analysis)

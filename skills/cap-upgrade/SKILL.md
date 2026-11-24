@@ -21,14 +21,17 @@ official CAP migration documentation on capire.
 `cds upgrade` is a deterministic command-line tool shipped with `@sap/cds-dk`.
 It is the foundation this skill works on top of.
 
-It proposes dependency updates and installation interactively. The target major
-comes from the running cds-dk. `--fix` applies Java OpenRewrite recipes;
-without it, recipes run as a dry-run.
+The target major comes from the running cds-dk. Run agent invocations without a
+TTY. For the first analysis, use `cds upgrade --report` without `--fix`: it analyses
+without applying dependency updates, removals, or installation, and skips Java OpenRewrite.
+Interactive runs propose updates and installation; Java recipes run as a dry-run
+without `--fix`. `--fix` applies Java OpenRewrite recipes in either execution mode.
 
 Use `cds upgrade --help` to discover the installed command's options and follow
 its actual prompts and output. This skill consumes its machine-readable report.
 
-With `--report`, findings or manual-review rules produce files in `.cds-upgrade/`:
+With `--report`, completed analysis writes fresh files in `.cds-upgrade/`,
+including when there are no findings or manual-review rules:
 
 - `report.yaml` – structured per-rule matches with file positions, guidance,
   compat flags, OpenRewrite recipes, and coverage signals (for AI consumption)
@@ -87,7 +90,7 @@ The developer asks to upgrade (e.g. "migrate my project", "run cds upgrade").
 Follow the main workflow from Step 0:
 
 1. Verify preconditions (Step 0)
-2. Run `cds upgrade --report` interactively (Step 1); add `--fix` only for approved Java recipe application
+2. Run `cds upgrade --report` (Step 1)
 3. Read and interpret output (Steps 2–5)
 4. Apply manual fixes, review compat flags (Step 6)
 
@@ -116,8 +119,7 @@ The project already upgraded to CDS 10 but may have:
 - Compat flags that should eventually be removed
 - New migration rules added in a cds-dk patch
 
-Run `cds upgrade --report` interactively to check remaining migration items;
-dependency updates may still be proposed. If
+Run `cds upgrade --report` to check remaining migration items. If
 `.cds-upgrade/report.yaml` already exists and is current (Mode B detection
 applies), skip directly to Step 2.
 
