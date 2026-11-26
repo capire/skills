@@ -16,6 +16,8 @@ affected behavior. Use a staged upgrade when it helps isolate failures.
 For a tool target of CDS 10 or later, use the main workflow
 and consult this appendix for earlier changes.
 
+Follow the rules under "Reading reports" in SKILL.md for searches and edits.
+
 ### M1 – Detect current versions
 
 ```sh

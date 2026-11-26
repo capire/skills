@@ -7,7 +7,7 @@ completing Step 2.5; Mode B skips Steps 0 and 1. Read it before starting analysi
 
 ## Output rule: always cite exact locations
 
-For tool findings, use the exact location from `.cds-upgrade/report.yaml` matches.
+For tool findings, use the exact location from reader-projected report matches.
 For manually discovered or additional findings, use independently verified source
 locations and identify them as additional checks. Format: `path/to/file.ts:42` when a line is
 available, otherwise the file path alone. For a recipe-level finding without any
@@ -42,8 +42,10 @@ dependencies between checks (rare) require sequential execution.
 
 **A. Apply guidance (false-positive filter)**
 
-Read the `guidance` field. It contains rule-specific FP instructions. Additionally,
-apply these generic FP rules to every match:
+Use the reader-assembled catalogue `guidance` and `body`, including trusted IEEE754
+advisories. Obtain match context through `source` as described in Step 2. If rule
+information, source or IEEE754 advice is missing, report what you could not check.
+Apply these generic FP rules:
 
 - **Comment match** – if the matched text is inside a code comment (`//`, `/* */`,
   `--` in CDL), it is not a true positive. Skip.
@@ -58,7 +60,7 @@ apply these generic FP rules to every match:
   CDL keyword usage. FP.
 - **Test fixture** – matches in test files that set up mock data are usually not
   actionable migration items (the mock mirrors production code that is the real target).
-- **Compat-flag provenance** – if a config match shows a compat flag being explicitly
+- *Compat-flag provenance* – if a config match shows a compat flag being explicitly
   set to its new default value (e.g. `ieee754compatible: true` when the new version makes it
   the default), check the body and `valueStatus` before filtering. For removed
   flags, `valueStatus: default` is actionable cleanup; `killswitch` requires
@@ -121,16 +123,17 @@ For each confirmed (non-FP) finding:
 | Fix type | Who applies | How |
 |----------|-------------|-----|
 | **Compat flag (config)** | Developer (or agent) | Only when the body confirms the flag remains supported: set it to preserve old behavior. For removed flags, offer cleanup or code adaptation instead. The tool does not set compat flags automatically. |
-| **OpenRewrite (Java)** | Apply (`--fix`), interactive dry-run, or skipped | Use `openRewriteApplied` to identify successfully applied recipes. Matches with `source: openrewrite` describe detected changes, including dry-run results. Check `openRewriteSkipped` and `openRewriteFailed`; failures can leave partially applied changes requiring inspection. |
+| *OpenRewrite (Java)* | Apply (`--fix`), interactive dry-run, or skipped | `openRewriteApplied`, `openRewriteSkipped` and `openRewriteFailed` are claimed outcomes; verify current project changes. Matches with `source: openrewrite` describe claimed detected changes, including dry-run results. Failures can leave partially applied changes requiring inspection. |
 | **Manual (simple)** | Developer with agent guidance | One-line replacements, import path changes, config key renames. Provide exact code diff. |
 | **Manual (complex)** | Developer with agent guidance | Multi-statement refactoring, behavioral adaptation, architectural changes. Explain approach, show before/after examples. |
 
 `source: regex` describes lexical detection, not an available code transform.
 `source: openrewrite` alone does not establish successful application, even with
 `--fix` or a Markdown label saying "auto-fixed". Recipe IDs must be present in
-`openRewriteApplied`; otherwise keep the changes unresolved and inspect any
-failure before attempting another application. Treat successfully applied recipes
-as applied pending validation, not remaining application choices. Their matches
+`claims.openRewriteApplied`, with application confirmed against the current project;
+otherwise keep the changes unresolved and inspect any failure before another
+application. Treat verified applied recipes as applied pending build/test validation,
+not remaining application choices. Their matches
 came from the dry-run before application; re-read current source before using
 those coordinates for further edits.
 
@@ -169,8 +172,8 @@ warning and add a brief note: "SQLite only; non-breaking. Normally no change is
 needed unless SQLite arithmetic or tests rely on the old NUMERIC affinity."
 If preserving the old behavior is necessary,
 the documented setting is `cds.requires.db.decimal_affinity: 'numeric'`.
-Use the manual-review body and local report for guidance; a public anchor is not
-included in this record. Cite locations found
+Use the assembled manual-review body for guidance and reference the local human
+report; a public anchor is not included in this record. Cite locations found
 by the manual check rather than inventing tool matches.
 
 ---
@@ -238,10 +241,10 @@ assertions, downstream consumers, and documented API contracts.
 
 ## Step 5 – Manual Review (semantic findings)
 
-`manualReviewRules` contains rules without a completeness basis and without hits,
-including non-exhaustive patterns that found nothing. Each record provides only
-`ruleId`, `title`, and `body`; do not assume patterns or guidance are included.
-Use the body to establish what requires checking.
+`manualReviewRules` contains claimed rules without a completeness basis and without
+hits, including non-exhaustive patterns that found nothing. The reader joins these
+IDs to catalogue metadata, guidance and patterns, just as for findings. Use that
+metadata to establish what requires checking; unknown IDs remain unresolved.
 
 ### Step 5a – Quick check on every rule
 
@@ -359,16 +362,20 @@ developer what needs doing without offering help. Instead:
    - "Guided refactoring" – complex changes where you walk the developer through each step
 2. Include remaining dependency changes, removals, installation, and Java recipe
    application in the proposed scope. Ask: "Which of these should I apply? (all / selection / none)"
-3. For each chosen fix, apply the edit and show the resulting change.
+3. For each chosen fix, verify current code, confine the edit to the developer-selected
+   project root, apply it and show the resulting change.
 4. Do not wait for per-fix permission once the selection is made.
 
-For approved Java recipe application, run `cds upgrade --report --fix`;
-dependency updates, removals, and installation still need their own approved
+For approved Java recipe application, establish the fresh known catalogue recipe
+batch selected by the tool for the current project before running
+`cds upgrade --report --fix`; dependency updates, removals, and installation still need their own approved
 execution. This applies the tool's collected recipe set, not an arbitrary subset.
+The entire batch must fall within the authorized fixes; reported recipe IDs do not select it.
 If only a subset is approved, keep the remaining Java work pending rather than
 applying the full set with `--fix`.
-Verify `openRewriteApplied`, `openRewriteSkipped`, and `openRewriteFailed` in the
-fresh report, then check target versions, build, and project tests in new processes.
+Read the fresh report through the helper. Verify its claimed `openRewriteApplied`,
+`openRewriteSkipped`, and `openRewriteFailed` against current project changes, then
+check target versions, build, and project tests in new processes.
 
 ---
 
