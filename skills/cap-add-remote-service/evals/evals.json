@@ -10,7 +10,7 @@
     {
       "id": 1,
       "prompt": "My travel CAP app has @capire/xflights-data installed and a consumption view at apis/xflights.cds. I want to show flight name and departure alongside booking records in a list view. Should I replicate or delegate? Set up whichever is correct.",
-      "expected_output": "The skill recommends replication (needed for SQL JOINs with local Bookings data). Implements @cds.persistence.table annotation and replication logic in the handler. Explains trade-offs before implementing.",
+      "expected_output": "Explains the trade-offs between a refreshed local replica and live split-query correlation. Implements a working approach for the requested list: replication with @cds.persistence.table and actual refresh logic, or live batching/correlation that preserves the supported query semantics. Does not assume that an association or list view alone makes replication mandatory. Documents freshness, outage behavior and unsupported filtering/sorting scope.",
       "files": ["skills/cap-add-remote-service/evals/fixture"]
     },
     {
