@@ -1,359 +1,160 @@
 {
   "skill_name": "cap-developer",
+  "runtime_context": "For Node.js use CDS 10.2 and Node.js 24 with ESM. For Java use CAP Java SDK 5.0; generated linkedInterfaces=true unless the task says otherwise. Where project configuration is not supplied, state assumptions and avoid universal diagnoses. Use the supplied fixtures for existing-project tasks.",
   "evals": [
     {
-      "id": "node-1",
-      "prompt": "I need to start a new CAP project for a helpdesk app. It'll have tickets with a title, description, priority (low/medium/high), status (open/in-progress/resolved), and an assignee. Can you set up the project and write the data model?",
-      "expected_output": "Correct cds init command, no cds add sample, namespace defined, cuid/managed aspects used, db entity exposed via service projection, PascalCase/camelCase naming conventions followed.",
+      "id": 1, "case_id": "node-1", "name": "helpdesk-model", "stack": "node",
+      "prompt": "Set up a new CAP Node.js helpdesk project and provide its domain model and service. Tickets need title, description, priority (low/medium/high), status (open/in-progress/resolved), and an assignee. Use a sensible representation for assignees and enforce the listed supplied priority/status values. Do not add a demo app or deployment features.",
+      "expected_output": "Valid initialization and coherent CDS domain/service definitions with the requested fields and enforced code values.",
       "files": [],
-      "assertions": [
-        {
-          "id": "uses-cds-init-with-name",
-          "description": "Uses 'cds init <name>' to create the project, not mkdir or bare cds init"
-        },
-        {
-          "id": "no-cds-add-sample",
-          "description": "Does NOT suggest running 'cds add sample'"
-        },
-        {
-          "id": "has-namespace",
-          "description": "CDS model declares a namespace"
-        },
-        {
-          "id": "uses-cuid-and-managed",
-          "description": "Uses both 'cuid' and 'managed' aspects from @sap/cds/common"
-        },
-        {
-          "id": "service-uses-projection",
-          "description": "Service exposes entities via 'as projection on' \u2014 not raw db entities"
-        },
-        {
-          "id": "uses-cds-add-data",
-          "description": "Sample data generation uses 'cds add data --records' \u2014 not hand-written CSVs"
-        }
-      ],
-      "stack": "node"
+      "expectations": ["Provides valid CAP Node.js initialization without unrelated demo/deployment scaffolding; named-directory and current-directory initialization are both acceptable.", "Defines all requested ticket fields with valid keys and a coherent assignee representation/relationship.", "Exposes the intended ticket domain through valid service definitions with consistent names and references.", "Actually enforces the supplied priority/status value sets; a bare unenforced enum is insufficient."]
     },
     {
-      "id": "node-2",
-      "prompt": "I wrote a handler to close a ticket only if it's currently open. Can you review it?\n```js\nthis.before('UPDATE', Tickets, async req => {\n  const ticket = await SELECT.one.from(Tickets).where({ ID: req.data.ID })\n  if (ticket?.status !== 'open') {\n    return req.reject(409, 'Only open tickets can be closed')\n  }\n})\n```",
-      "expected_output": "Identifies SELECT + conditional as two DB round-trips. Rewrites using a single conditional UPDATE with WHERE clause. Keeps req.reject for error handling.",
+      "id": 2, "case_id": "node-2", "name": "close-transition-review", "stack": "node",
+      "prompt": "Review this CAP Node.js ticket handler. Only a transition to status='closed' must require the existing status to be 'open'; ordinary edits must still work. The service also has generic UPDATE handling. Show a concurrency-safe fix without causing a second update.\n```js\nthis.before('UPDATE', Tickets, async req => {\n  const ticket = await SELECT.one.from(Tickets).where({ ID: req.data.ID })\n  if (ticket?.status !== 'open') return req.reject(409, 'Only open tickets can be closed')\n})\n```",
+      "expected_output": "Finds overbroad guard and check/write race; preserves generic behavior or implements the intended update exactly once.",
       "files": [],
-      "assertions": [
-        {
-          "id": "identifies-two-roundtrips",
-          "description": "Explicitly identifies the SELECT + UPDATE pattern as two DB round-trips"
-        },
-        {
-          "id": "suggests-conditional-update",
-          "description": "Suggests folding the check into a single conditional UPDATE, checking the returned row count"
-        },
-        {
-          "id": "keeps-req-reject",
-          "description": "Revised solution still uses req.reject for error handling (not throw)"
-        }
-      ],
-      "stack": "node"
+      "expectations": ["Identifies that the existing handler blocks unrelated updates instead of guarding only the closing transition.", "Identifies the check/write race and provides valid atomic conditional update, locking, or equivalent concurrency control.", "Preserves target selection and performs the intended update exactly once rather than updating in before and then letting a second generic UPDATE run.", "Provides meaningful failed-transition/missing-target behavior using an affected-row check appropriate to the execution API or an equivalent supported mechanism."]
     },
     {
-      "id": "node-3",
-      "prompt": "I need to make sure the `priority` field in my Tickets entity only accepts values 'low', 'medium', or 'high', and that `title` is required. Should I write a handler for this?",
-      "expected_output": "Recommends @mandatory for title and @assert.range or a CDS enum/type for priority. Does NOT recommend writing a custom handler.",
+      "id": 3, "case_id": "node-3", "name": "enum-and-required-title", "stack": "node",
+      "prompt": "In CAP Node.js, Tickets.priority must accept only supplied values 'low', 'medium', or 'high', while Tickets.title must be required and nonempty. Priority itself may be omitted. Should I write a handler? Show the CDS solution.",
+      "expected_output": "Declarative mandatory-title and enforced enum validation without making optional priority mandatory.",
       "files": [],
-      "assertions": [
-        {
-          "id": "no-handler-recommended",
-          "description": "Does NOT recommend writing a custom handler as the solution"
-        },
-        {
-          "id": "uses-mandatory-annotation",
-          "description": "Recommends @mandatory for the title field"
-        },
-        {
-          "id": "uses-assert-range-or-enum",
-          "description": "Recommends @assert.range or a CDS type/enum for priority validation"
-        }
-      ],
-      "stack": "node"
+      "expectations": ["Uses declarative required/nonempty title validation, normally @mandatory.", "Enforces allowed priority values server-side, normally enum plus @assert.range: true; enum definition alone does not pass.", "Keeps priority optional and avoids an unnecessary custom validation handler."]
     },
     {
-      "id": "node-4",
-      "prompt": "Can you help me build a small todo app in CAP Node.js? I need a Todos entity with a title, a done flag, and an optional due date. Also add a custom action to mark a todo as done.",
-      "expected_output": "Uses cds init <name>, no cds add sample, namespace defined, cuid+managed aspects, service projection, action registered with srv.on, req.reject not throw, explicit column list in SELECT, cds add data --records for sample data.",
+      "id": 4, "case_id": "node-4", "name": "todo-bound-action", "stack": "node",
+      "prompt": "Build a small CAP Node.js todo app. Provide project commands, CDS files and the handler. Todos have a title, done flag, and optional due date. Add a bound markDone action that updates only the addressed todo, returns it, and reports a missing target meaningfully.",
+      "expected_output": "Consistent model/service/action and ESM handler implementing the requested target, update and return behavior.",
       "files": [],
-      "assertions": [
-        {
-          "id": "uses-cds-init-with-name",
-          "description": "Uses 'cds init <name>' to create the project, not mkdir"
-        },
-        {
-          "id": "service-uses-projection",
-          "description": "Service exposes Todos via 'as projection on' \u2014 not the raw db entity"
-        },
-        {
-          "id": "uses-req-reject-not-throw",
-          "description": "Handler uses req.reject() for errors \u2014 not throw or req.error"
-        },
-        {
-          "id": "explicit-column-list-in-select",
-          "description": "Any SELECT in the handler uses an explicit column list, not SELECT *"
-        },
-        {
-          "id": "uses-cds-add-data",
-          "description": "Sample data uses 'cds add data --records' \u2014 not hand-written CSVs with invented UUIDs"
-        }
-      ],
-      "stack": "node"
+      "expectations": ["Defines the requested fields, nullable due date, valid keys and matching service exposure.", "Declares and registers a compatible bound action using the intended service implementation discovery.", "The proposed action updates only the addressed todo to done=true and returns/completes according to its declaration.", "Handles missing target with a meaningful client error and preserves generic service handlers, including super.init() when overriding ApplicationService.init()."]
     },
     {
-      "id": "node-5",
-      "prompt": "I'm writing a handler to validate that a new Order has at least one item before it's saved. Here's what I have:\n```js\nthis.before('CREATE', Orders, req => {\n  if (!req.data.items || req.data.items.length === 0) {\n    throw new Error('Order must have at least one item')\n  }\n})\n```\nIs this the right way to handle it?",
-      "expected_output": "Identifies throw new Error as wrong in CAP. Recommends req.reject(400, '...') instead. Explains why: CAP owns error handling, correct HTTP status code, proper OData error body.",
+      "id": 5, "case_id": "node-5", "name": "node-business-validation-error", "stack": "node",
+      "prompt": "Review this CAP Node.js CREATE validation. Orders must have at least one supplied item.\n```js\nthis.before('CREATE', Orders, req => {\n  if (!req.data.items || req.data.items.length === 0) {\n    throw new Error('Order must have at least one item')\n  }\n})\n```\nExplain the error-handling issue and give a supported replacement that rejects invalid writes but accepts nonempty items.",
+      "expected_output": "Supported business validation with a suitable client status; does not falsely deny CAP exception handling.",
       "files": [],
-      "assertions": [
-        {
-          "id": "identifies-throw-as-wrong",
-          "description": "Identifies 'throw new Error' as wrong / non-idiomatic in CAP"
-        },
-        {
-          "id": "recommends-req-reject",
-          "description": "Recommends req.reject(400, '...') as the correct replacement"
-        },
-        {
-          "id": "explains-why",
-          "description": "Explains why: CAP error pipeline, correct HTTP status code, or OData error body"
-        }
-      ],
-      "stack": "node"
+      "expectations": ["Explains that an unclassified Error gives unsuitable business/client-error semantics, without claiming CAP cannot handle exceptions.", "Uses supported client-error rejection or correct error aggregation to prevent invalid CREATE writes.", "Retains rejection for absent/empty items and acceptance for a nonempty item array."]
     },
     {
-      "id": "node-6",
-      "prompt": "In my Tickets entity I have a rule: when status is set to 'resolved', the resolvedAt date must be provided. How should I validate this \u2014 do I need a custom handler?",
-      "expected_output": "Does NOT recommend a custom handler. Uses @assert annotation with a case/when expression, e.g. @assert: (case when status = 'resolved' then resolvedAt end).",
+      "id": 6, "case_id": "node-6", "name": "node-conditional-timestamp", "stack": "node",
+      "prompt": "In CAP Node.js CDS 10.2, when Tickets.status is 'resolved', resolvedAt must be non-null. Other statuses may omit it. Show a declarative rule, explain its success/failure semantics, and discuss PATCH that changes only status or clears only resolvedAt. An existing resolvedAt omitted from PATCH must be retained.",
+      "expected_output": "Correct message-producing expression constraint checking effective row state including partial updates.",
       "files": [],
-      "assertions": [
-        {
-          "id": "no-handler-recommended",
-          "description": "Does NOT recommend writing a custom handler as the solution"
-        },
-        {
-          "id": "uses-assert-case-when",
-          "description": "Uses @assert annotation with a CASE WHEN expression for the cross-field validation"
-        },
-        {
-          "id": "correct-cap-facts",
-          "description": "Does not falsely claim that @assert cannot handle conditional cross-field validation"
-        }
-      ],
-      "stack": "node"
+      "expectations": ["Provides a correct declarative constraint whose violation is resolved status AND null timestamp, returning a message/key on violation and null on success.", "Accepts resolved with timestamp and other status without timestamp; does not reverse valid and invalid cases.", "Explains effective-state validation for status-only PATCH, timestamp-only clearing, and retaining an existing omitted timestamp rather than checking only req.data."]
     },
     {
-      "id": "java-1",
-      "prompt": "I need to start a new CAP Java project for a bookshop app. It'll have Books with a title, price, stock (integer), and an association to an Authors entity (name, dateOfBirth). Can you set up the project and write the data model?",
-      "expected_output": "Correct cds init command with --java flag, no cds add sample, namespace defined in db/schema.cds, cuid/managed aspects used, db entities exposed via service projections, PascalCase/camelCase naming conventions, Maven run from project root, sample data via cds add data --records.",
+      "id": 7, "case_id": "java-1", "name": "java-bookshop-model", "stack": "java",
+      "prompt": "Set up a CAP Java bookshop project. Provide commands and domain/service CDS files. Books have title, price, integer stock and an association to Authors; Authors have name and dateOfBirth. Avoid an unrelated demo app. State build/run assumptions rather than making claims about all Maven projects.",
+      "expected_output": "Java initialization, coherent CDS definitions and applicable build/run instructions.",
       "files": [],
-      "assertions": [
-        {
-          "id": "uses-cds-init-java",
-          "description": "Uses 'cds init <name> --java' to create the project, not a plain 'cds init' without the --java flag"
-        },
-        {
-          "id": "no-cds-add-sample",
-          "description": "Does NOT suggest running 'cds add sample'"
-        },
-        {
-          "id": "has-namespace",
-          "description": "CDS model declares a namespace in db/schema.cds"
-        },
-        {
-          "id": "uses-cuid-and-managed",
-          "description": "Uses both 'cuid' and 'managed' aspects from @sap/cds/common"
-        },
-        {
-          "id": "service-uses-projection",
-          "description": "Service exposes entities via 'as projection on' \u2014 not raw db entities"
-        },
-        {
-          "id": "maven-from-root",
-          "description": "All Maven commands (mvn compile, mvn spring-boot:run) are shown running from the project root, not from srv/"
-        },
-        {
-          "id": "uses-cds-add-data",
-          "description": "Sample data generation uses 'cds add data --records' \u2014 not hand-written CSVs with invented UUIDs"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Initializes a Java CAP project with --java, using a valid target directory, without unrelated demo scaffolding.", "Defines every requested Books/Authors field, appropriate types/keys and a valid association.", "Exposes the intended entities through coherent service definitions.", "Provides build/code-generation and run guidance for the assumed generated project without asserting all submodule Maven goals universally fail."]
     },
     {
-      "id": "java-2",
-      "prompt": "I wrote a handler to decrement book stock when an order is placed. Can you review it?\n```java\n@On(entity = Books_.class)\npublic void onOrderBook(CdsUpdateEventContext context) {\n    String bookId = (String) context.getCqn().ref().segments().get(0).keys().get(\"ID\");\n    Result res = db.run(Select.from(Books_.class).where(b -> b.ID().eq(bookId)));\n    Books book = res.single(Books.class);\n    int newStock = book.getStock() - 1;\n    db.run(Update.entity(Books_.class).where(b -> b.ID().eq(bookId)).data(Books.STOCK, newStock));\n}\n```",
-      "expected_output": "Identifies multiple issues: (1) CqnReference.Segment does not have a keys() method \u2014 use CqnAnalyzer instead; (2) SELECT then UPDATE is a race condition \u2014 use .set() with CQN expression for atomic decrement; (3) typed Select returns CdsResult<Books>, not Result; (4) read-modify-write allows lost updates under concurrency.",
+      "id": 8, "case_id": "java-2", "name": "java-stock-handler-review", "stack": "java",
+      "prompt": "Review this CAP Java SDK 5.0 handler (linkedInterfaces=true, db is PersistenceService). The intent is to decrement stock when a submitOrder action is called, not on every CRUD update. Explain registration, key extraction, result typing, concurrency and failure/completion issues.\n```java\n@On(entity = Books_.class)\npublic void onOrderBook(CdsUpdateEventContext context) {\n  String bookId = (String) context.getCqn().ref().segments().get(0).keys().get(\"ID\");\n  Result res = db.run(Select.from(Books_.class).where(b -> b.ID().eq(bookId)));\n  Books book = res.single(Books.class);\n  int newStock = book.getStock() - 1;\n  db.run(Update.entity(Books_.class).where(b -> b.ID().eq(bookId)).data(Books.STOCK, newStock));\n}\n```",
+      "expected_output": "Identifies event mismatch, unsupported keys(), actual linked-result mismatch and stock race; proposes guarded atomic action handling.",
       "files": [],
-      "assertions": [
-        {
-          "id": "identifies-no-keys-method",
-          "description": "Identifies that CqnReference.Segment does NOT have a keys() method and recommends CqnAnalyzer"
-        },
-        {
-          "id": "identifies-race-condition",
-          "description": "Identifies the read-modify-write pattern as a race condition / lost-update risk"
-        },
-        {
-          "id": "uses-set-with-expression",
-          "description": "Recommends using .set() with a CQN expression (e.g. s -> s.minus(quantity)) for atomic decrement"
-        },
-        {
-          "id": "identifies-typed-result-mismatch",
-          "description": "Identifies that Select.from(Books_.class) returns CdsResult<Books>, not Result"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Recognizes that CdsUpdateEventContext registers UPDATE, not submitOrder, and proposes the correct generated action context/registration and completion.", "Replaces unsupported segment.keys() with supported model-aware key extraction, such as CqnAnalyzer.targetKeys().", "Identifies lost updates and proposes concurrency-safe stock adjustment including a nonnegative-stock/availability guard and meaningful zero-row failure.", "Handles linked typed Select results compatibly with SDK 5.0 (var/CdsResult or supported untyped conversion), without claiming this exact return typing applies to every configuration."]
     },
     {
-      "id": "java-3",
-      "prompt": "I need to make sure the `price` field in my Books entity only accepts values between 0.01 and 9999.99, and that `title` is required. Should I write a @Before handler for this?",
-      "expected_output": "Recommends @mandatory for title and @assert.range for price. Does NOT recommend writing a custom handler.",
+      "id": 9, "case_id": "java-3", "name": "java-price-validation", "stack": "java",
+      "prompt": "In CAP Java Books, price must be between 0.01 and 9999.99 inclusive and title is required/nonempty. Price may be omitted. Should I write a @Before handler? Provide CDS validation.",
+      "expected_output": "Mandatory title and inclusive declarative range without making optional price mandatory.",
       "files": [],
-      "assertions": [
-        {
-          "id": "no-handler-recommended",
-          "description": "Does NOT recommend writing a custom handler for these validations"
-        },
-        {
-          "id": "uses-mandatory-annotation",
-          "description": "Recommends @mandatory for the title field"
-        },
-        {
-          "id": "uses-assert-range",
-          "description": "Recommends @assert.range: [0.01, 9999.99] for price validation"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Uses declarative mandatory/nonempty title validation.", "Uses valid declarative inclusive price range [0.01, 9999.99] with a suitable decimal type.", "Avoids an unnecessary handler and retains the requested optionality of price."]
     },
     {
-      "id": "java-4",
-      "prompt": "Can you help me build a small bookshop app in CAP Java? I need Books and Authors entities, a CatalogService for browsing, and a custom action 'submitOrder' that decrements stock. Include mock users for testing.",
-      "expected_output": "Uses cds init --java, namespace, cuid+managed, projections, @Before/@On annotations with typed entity classes, CqnAnalyzer for bound action keys, .set() with CQN expression for stock decrement, ServiceException for errors, spring-boot-starter-security dependency in srv/pom.xml, mock users in application.yaml, mvn compile before writing handlers, mvn spring-boot:run from root.",
+      "id": 10, "case_id": "java-4", "name": "java-submit-order-action", "stack": "java",
+      "prompt": "Provide a small CAP Java bookshop implementation with Books, Authors and a CatalogService for browsing. Add an unbound submitOrder(book: UUID, quantity: Integer) action that decrements stock and returns the remaining stock. Reject nonpositive quantity, missing books and insufficient stock, including concurrent orders. Include local mock-user configuration and the security prerequisites. Use SDK 5.0 and inspect/describe generated context names rather than assuming names for bound actions.",
+      "expected_output": "Coherent Java model/action, guarded atomic decrement, action completion and local authentication configuration.",
       "files": [],
-      "assertions": [
-        {
-          "id": "uses-cds-init-java",
-          "description": "Uses 'cds init <name> --java' to create the project"
-        },
-        {
-          "id": "service-uses-projection",
-          "description": "Service exposes entities via 'as projection on'"
-        },
-        {
-          "id": "uses-service-exception",
-          "description": "Error handling uses 'throw new ServiceException(ErrorStatuses.XXX, ...)' \u2014 not 'throw new RuntimeException' or custom exceptions"
-        },
-        {
-          "id": "atomic-stock-decrement",
-          "description": "Stock decrement uses .set() with CQN expression, not read-modify-write"
-        },
-        {
-          "id": "spring-security-dependency",
-          "description": "Adds spring-boot-starter-security dependency to srv/pom.xml for mock auth"
-        },
-        {
-          "id": "mock-users-in-yaml",
-          "description": "Configures mock users in srv/src/main/resources/application.yaml under cds.security.mock.users"
-        },
-        {
-          "id": "mvn-compile-before-handlers",
-          "description": "Runs mvn compile before writing handler code to generate typed entity classes"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Provides consistent Java project/model/service/action declarations with the requested entities and return type.", "Validates positive quantity and uses valid concurrency-safe stock arithmetic with sufficient-stock and missing-target handling.", "Completes/returns action results consistently and uses meaningful supported client-error handling.", "Provides supported local mock users/roles and available Spring Security prerequisites without claiming a direct dependency addition is always needed."]
     },
     {
-      "id": "java-5",
-      "prompt": "I'm writing a handler to validate that an Order must have at least one item before saving. Here's what I have:\n```java\n@Before(event = CdsService.EVENT_CREATE, entity = Orders_.class)\npublic void validateOrder(List<Orders> orders) {\n    for (Orders order : orders) {\n        if (order.getItems() == null || order.getItems().isEmpty()) {\n            throw new RuntimeException(\"Order must have at least one item\");\n        }\n    }\n}\n```\nIs this correct?",
-      "expected_output": "Identifies two issues: (1) CdsService does not exist \u2014 should use CqnService.EVENT_CREATE; (2) throw new RuntimeException is wrong \u2014 should use 'throw new ServiceException(ErrorStatuses.BAD_REQUEST, msg)'. Additionally notes that event/entity can be inferred from the method signature.",
+      "id": 11, "case_id": "java-5", "name": "java-validation-registration", "stack": "java",
+      "prompt": "Review this CAP Java validation handler. Explain event/entity registration and supported business-error handling.\n```java\n@Before(event = CdsService.EVENT_CREATE, entity = Orders_.class)\npublic void validateOrder(List<Orders> orders) {\n  for (Orders order : orders) {\n    if (order.getItems() == null || order.getItems().isEmpty()) {\n      throw new RuntimeException(\"Order must have at least one item\");\n    }\n  }\n}\n```\nCan the annotation attributes be omitted with this signature?",
+      "expected_output": "Correct CqnService constant, CREATE-specific registration and valid error handling; precise event/entity inference.",
       "files": [],
-      "assertions": [
-        {
-          "id": "identifies-cdsservice-wrong",
-          "description": "Identifies that 'CdsService' does not exist and recommends 'CqnService' for event constants"
-        },
-        {
-          "id": "recommends-service-exception",
-          "description": "Recommends 'throw new ServiceException(ErrorStatuses.BAD_REQUEST, ...)' instead of RuntimeException"
-        },
-        {
-          "id": "explains-signature-inference",
-          "description": "Notes that @Before can infer event and entity from the method signature (List<Orders> parameter implies CREATE + Orders_ entity)"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Corrects CdsService.EVENT_CREATE to the standard CqnService event constant API.", "Keeps registration specifically for CREATE on Orders, either explicitly or with a typed CdsCreateEventContext.", "Explains that List<Orders> can infer entity but not CREATE by itself; does not recommend dropping the event without a typed context.", "Provides supported client-error handling (ServiceException or Messages aggregation) for absent/empty items while accepting valid items."]
     },
     {
-      "id": "java-6",
-      "prompt": "In my Orders entity I have a rule: when status is set to 'confirmed', the confirmedAt timestamp must be provided. How should I validate this in CAP Java \u2014 do I need a custom handler?",
-      "expected_output": "Does NOT recommend a custom handler. Uses @assert annotation with a case/when expression for cross-field validation.",
+      "id": 12, "case_id": "java-6", "name": "java-conditional-timestamp", "stack": "java",
+      "prompt": "On current CAP Java SDK 5.0 with expression constraints supported, Orders with status='confirmed' must have confirmedAt. Other statuses may omit it. Show a declarative rule and valid/invalid CREATE and PATCH examples, including a PATCH that only clears confirmedAt and one that retains an existing omitted timestamp.",
+      "expected_output": "Correct conditional constraint and effective-state partial-update explanation.",
       "files": [],
-      "assertions": [
-        {
-          "id": "no-handler-recommended",
-          "description": "Does NOT recommend writing a custom handler as the primary solution"
-        },
-        {
-          "id": "uses-assert-case-when",
-          "description": "Uses @assert annotation with a CASE WHEN expression for cross-field validation"
-        },
-        {
-          "id": "correct-cap-facts",
-          "description": "Does not falsely claim that @assert cannot handle conditional cross-field validation"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Uses a correct declarative message-producing constraint for confirmed AND null confirmedAt, returning null for valid rows.", "Accepts confirmed with timestamp and other states without timestamp; gives matching valid/invalid examples.", "Covers status-only PATCH, timestamp clearing and retained omitted existing timestamps through effective-state validation rather than payload-only checking."]
     },
     {
-      "id": "java-7",
-      "prompt": "I'm trying to run my CAP Java app but getting errors. I'm running `mvn spring-boot:run -pl srv` from the project root. Also, to check if the app is up I'm curling http://localhost:8080/odata/v4/ \u2014 it returns 404. What's wrong?",
-      "expected_output": "Identifies two problems: (1) '-pl srv' triggers ReactorModuleConvergence failure \u2014 must run 'mvn spring-boot:run' from project root without -pl; (2) /odata/v4/ always returns 404 \u2014 must poll an actual entity endpoint like /odata/v4/<service>/<Entity> for health check.",
+      "id": 13, "case_id": "java-7", "name": "java-startup-diagnostics", "stack": "java",
+      "prompt": "My CAP Java app seems broken. I ran mvn spring-boot:run -pl srv from the project root and GET http://localhost:8080/odata/v4/ returned 404. I have not supplied the POM, service model or Maven log. What can we conclude, what should we inspect, and how should I verify readiness?",
+      "expected_output": "Evidence-based diagnosis separating Maven configuration from endpoint selection, without universal claims.",
       "files": [],
-      "assertions": [
-        {
-          "id": "identifies-pl-srv-wrong",
-          "description": "Identifies that '-pl srv' or running from srv/ directory will cause ReactorModuleConvergence failure"
-        },
-        {
-          "id": "correct-mvn-command",
-          "description": "Recommends 'mvn spring-boot:run' from project root without -pl flag"
-        },
-        {
-          "id": "identifies-odata-root-404",
-          "description": "Explains that /odata/v4/ root always returns 404 and is NOT a valid health-check endpoint"
-        },
-        {
-          "id": "recommends-entity-endpoint",
-          "description": "Recommends polling an actual entity endpoint (e.g. /odata/v4/browse/Books) to verify readiness"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Does not conclude -pl srv or all submodule Maven commands must fail without inspecting actual logs/POM/reactor configuration.", "Explains that an adapter-base-path 404 alone neither establishes application failure nor identifies a Maven error.", "Derives or requests the configured service/metadata endpoint or an installed health endpoint instead of inventing an assured service path.", "Distinguishes successful authenticated service/health checks from 401/connection failures without treating a 401 as proof of database/service readiness."]
     },
     {
-      "id": "java-8",
-      "prompt": "I have a bound action 'approve' on my Orders entity. How do I extract the order ID from the action context in the handler?\n```java\n@On\npublic void onApprove(ApproveContext context) {\n    CqnReference ref = context.getCqn();\n    String orderId = (String) ref.segments().get(0).keys().get(\"ID\");\n}\n```",
-      "expected_output": "Identifies that CqnReference.Segment does not have a keys() method. Recommends using CqnAnalyzer.create(context.getModel()) and analyzer.analyze(context.getCqn()) to extract targetKeys().",
+      "id": 14, "case_id": "java-8", "name": "java-bound-target-keys", "stack": "java",
+      "prompt": "A bound approve action addresses Orders, sometimes through Customers(...)/orders(...). The root customer ID is not the target order ID. Review this key extraction and give a supported replacement using the generated action context (inspect its exact name rather than assuming it).\n```java\n@On\npublic void onApprove(ApproveContext context) {\n  CqnReference ref = context.getCqn();\n  String orderId = (String) ref.segments().get(0).keys().get(\"ID\");\n}\n```",
+      "expected_output": "Model-aware bound target key extraction and distinction from root keys.",
       "files": [],
-      "assertions": [
-        {
-          "id": "identifies-no-keys-method",
-          "description": "Identifies that CqnReference.Segment does NOT have a keys() method"
-        },
-        {
-          "id": "uses-cqn-analyzer",
-          "description": "Recommends CqnAnalyzer.create(context.getModel()) for extracting keys"
-        },
-        {
-          "id": "uses-analyze-and-target-keys",
-          "description": "Shows calling analyzer.analyze(context.getCqn()).targetKeys() to get the bound entity's key values"
-        }
-      ],
-      "stack": "java"
+      "expectations": ["Identifies unsupported segment.keys() and avoids ad hoc first-segment key extraction.", "Uses supported model-aware introspection, normally CqnAnalyzer.analyze(context.getCqn()).targetKeys().", "Distinguishes target order keys from root customer keys and accommodates the actual generated context name."]
+    },
+    {
+      "id": 15, "case_id": "node-7", "name": "existing-esm-extension", "stack": "node",
+      "prompt": "Extend the supplied esm-helpdesk CAP Node.js project with a bound archive action that sets archived=true, returns the addressed ticket and rejects a missing target. Preserve ESM, existing CREATE validation and generic reads. Provide complete revised files; do not reinitialize the project. Verify a successful archive, a missing target, and existing CREATE/read behavior through the service.",
+      "expected_output": "Incremental ESM-compatible change preserving existing behavior and handler discovery.",
+      "files": ["evals/fixtures/esm-helpdesk/package.json", "evals/fixtures/esm-helpdesk/db/schema.cds", "evals/fixtures/esm-helpdesk/srv/ticket-service.cds", "evals/fixtures/esm-helpdesk/srv/ticket-service.js"],
+      "expectations": ["Preserves ESM, existing files/model names and CREATE validation without reinitializing or converting to CommonJS.", "Keeps matching service/handler discovery and super.init() so generic reads continue to work.", "Declares/implements a matching bound archive action that updates only its target and returns the declared result.", "Provides meaningful missing-target handling using supported API-specific result checks."]
+    },
+    {
+      "id": 16, "case_id": "shared-1", "name": "related-row-null-validation", "stack": "shared",
+      "prompt": "In a CDS 10.2 CAP service, Travel has ID and currency; Booking has ID, optional currency and a required managed to-one Travel association. When Booking.currency is supplied, it must equal its existing Travel.currency. Missing Booking.currency is allowed. Add server-side constraints and show matching, mismatching, missing-currency and invalid-Travel CREATE examples. Discuss PATCH that changes only the association or currency. Do not promise revalidation of every Booking when Travel itself is changed.",
+      "expected_output": "Declarative association existence and currency comparison with explicit null and write-path scope.",
+      "files": [],
+      "expectations": ["Ensures required Travel association and target existence using supported constraints.", "Enforces supplied Booking currency matching related Travel currency with a correct association-path expression.", "Allows omitted/null Booking currency and gives correct valid/invalid examples without a bare null-sensitive comparison being claimed to require it.", "Covers effective Booking state for PATCH and does not claim Travel-only updates automatically revalidate all children."]
+    },
+    {
+      "id": 17, "case_id": "shared-2", "name": "concurrent-email-uniqueness", "stack": "shared",
+      "prompt": "Drivers must have a unique nonempty email. Two registrations with the same email can arrive concurrently. Provide domain/service CDS constraints and explain how you would test them. Updating an existing driver's displayName without changing email must still work. A SELECT-before-INSERT check alone is insufficient.",
+      "expected_output": "Persistence-level uniqueness plus required input; self-updates remain valid and race-safe protection is explained.",
+      "files": [],
+      "expectations": ["Places a named @assert.unique email constraint on the persistence entity or supplies equivalent concurrency-safe database uniqueness.", "Provides required/nonempty email input validation.", "Does not rely on check-before-write as the sole uniqueness protection and explains concurrent duplicate rejection.", "Preserves unrelated self-updates and proposes tests for concurrent duplicates and unchanged-email updates."]
+    },
+    {
+      "id": 18, "case_id": "shared-3", "name": "meaningful-related-seed-data", "stack": "shared",
+      "prompt": "Provide CSV demonstration data for namespace demo: Authors { key ID: UUID; name: String; } and Books { key ID: UUID; title: String; stock: Integer; author: Association to Authors; }. Existing author ID 11111111-1111-4111-8111-111111111111 is named Existing Author; existing book ID 22222222-2222-4222-8222-222222222222 is titled Existing Book, stock 5, and references that author. Preserve both existing rows. Produce final data with four authors and twelve books total, all valid author references, exactly two books with stock 0, one non-ASCII title, and one title containing a comma. Show complete correctly named CSV files; generation tools are optional.",
+      "expected_output": "Complete valid data preserving existing records, exact counts/scenarios and referential integrity.",
+      "files": [],
+      "expectations": ["Provides complete CSVs with four author rows and twelve book rows total, preserving the supplied existing rows/IDs.", "Uses unique valid UUIDs and every book author_ID resolves to one of the four author IDs.", "Contains exactly two stock=0 books, at least one non-ASCII title and a correctly quoted title containing a comma.", "Uses correct demo-Authors.csv / demo-Books.csv naming and columns including the managed association foreign key author_ID."]
+    },
+    {
+      "id": 19, "case_id": "java-9", "name": "java-service-tier-typed-results", "stack": "java",
+      "prompt": "In CAP Java SDK 5.0 with generated linkedInterfaces=true, a controller writes Books through PersistenceService and our CatalogService @Before validation never runs. Show how to route that business write through the application service, while keeping an intentional internal atomic stock adjustment inside submitOrder at the persistence tier. Also review Result r = db.run(Select.from(Books_.class)); for these generated types. Do persistence writes bypass managed-data handling too?",
+      "expected_output": "Application-service business writes, intentional persistence arithmetic, compatible typed results and accurate persistence-generic scope.",
+      "files": [],
+      "expectations": ["Routes the controller business write through the intended CatalogService application service so its handler chain/authorization runs.", "Keeps intentional concurrency-safe internal stock arithmetic at the persistence tier and avoids recursive application-service UPDATE handling.", "Uses compatible linked-interface result typing or supported untyped conversion for the supplied SDK/configuration.", "Explicitly recognizes PersistenceService still runs persistence generic providers such as managed-data handling rather than claiming all generic behavior is bypassed."]
+    },
+    {
+      "id": 20, "case_id": "node-8", "name": "authorized-external-risk-action", "stack": "node",
+      "prompt": "Add a bound assessRisk action to this CAP Node.js Orders service. Orders have UUID ID, ownerID: String and riskScore: Integer. Customers may READ only their own orders; risk-analyst users may READ all orders and call assessRisk. Neither role gets generic write permission. The action calls the supplied async getRisk(order) helper returning {score: integer}, stores the returned score for its addressed order and returns the score. Handle a missing order or provider failure without storing a fabricated/partial score. Show CDS authorization and the ESM handler; use the supplied helper, do not add a real provider integration.",
+      "expected_output": "Correct role/instance restrictions with necessary asynchronous action handler and failure-safe persistence.",
+      "files": [],
+      "expectations": ["Enforces customer own-order READ and analyst READ/action access declaratively without granting generic writes or using hardcoded user identities.", "Declares/registers a matching bound action and calls getRisk for only the addressed existing order.", "Stores and returns the actual valid provider score using intentional persistence work inside the authorized action.", "Rejects missing order/provider failure meaningfully without fabricating or persisting a score, and preserves generic reads."]
+    },
+    {
+      "id": 21, "case_id": "shared-4", "name": "generic-status-transitions", "stack": "shared",
+      "prompt": "Model a CAP Travel service with status Open='O', Accepted='A', Rejected='X'. New travels start Open; clients must not set status directly. Bound acceptTravel/rejectTravel actions may run only from Open and persist the new state. Use current generic status-transition support, without handwritten state-check/update handlers. Explain Node.js and Java setup, rejected/repeated calls, extra custom preconditions, and whether this controls CRUD or draft actions. Provide the CDS model and a service-level test matrix.",
+      "expected_output": "Complete @flow.status/@from/@to model, runtime setup and service-level success/rejection/rollback tests with accurate limitations.",
+      "files": [],
+      "expectations": ["Provides valid enum/default/read-only status and matching bound actions, using @flow.status and enum-valued @from/@to rather than replacing generic state checks/updates with handlers.", "Explains Open-to-Accepted/Rejected persistence and invalid or repeated entry returning 409 with unchanged state; includes matching service-level test cases.", "Distinguishes built-in Node.js support from Java cds-feature-flow runtime dependency and qualifies support for older runtimes.", "Keeps authorization and additional preconditions separate; does not claim flow annotations control CRUD/DRAFT operations or allow transitions on draft instances."]
+    },
+    {
+      "id": 22, "case_id": "node-9", "name": "awaited-served-initialization", "stack": "node",
+      "prompt": "With the standard CAP Node.js CDS 10.2 server, we need async loadRules() to finish and installRules(services, rules) to complete before the HTTP listener starts. Current code launches detached work: cds.on('served', services => { loadRules().then(rules => installRules(services, rules)) }). Can a served listener be async? Show correct startup gating and explain how initialization failure is handled. Do not invent a separate server or assume every lifecycle event is asynchronous.",
+      "expected_output": "Async served listener returns/awaits initialization; current standard server awaits it before listening and rejects failed initialization.",
+      "files": [],
+      "expectations": ["Accurately states that current served listeners support asynchronous initialization and are awaited by the standard server before HTTP listening.", "Provides an async listener or returned promise that awaits both loadRules and installRules, without detached background initialization.", "Propagates initialization failure through the awaited startup work rather than swallowing it, and does not generalize this contract to every lifecycle event."]
     }
   ]
 }
