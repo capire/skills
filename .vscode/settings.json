@@ -1,0 +1,11 @@
+{
+  "markdown.styles": [
+    ".vscode/styles.css"
+  ],
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "[skill]": {
+    "files.trimTrailingWhitespace": false
+  }
+}

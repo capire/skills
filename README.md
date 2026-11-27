@@ -1,15 +1,13 @@
 # CAP Skills
 
-## About this project
-
 Curated set of skills helping AI coding agents build and maintain [CAP](https://cap.cloud.sap) applications.
 
 ## Included Skills
 
 | Skill | Purpose |
 | --- | --- |
-| [cap-developer](skills/cap-developer/SKILL.md) | CAP application development |
 | [cap-guided-dev](skills/cap-guided-dev/SKILL.md) | Guided, step-by-step development |
+| [cap-developer](skills/cap-developer/SKILL.md) | CAP application development |
 | [cap-add-remote-service](skills/cap-add-remote-service/SKILL.md) | Remote-service integration |
 | [cap-upgrade](skills/cap-upgrade/SKILL.md) | CAP version upgrades |
 | [cap-trivia](skills/cap-trivia/SKILL.md) | CAP knowledge quiz |
@@ -31,6 +29,9 @@ CAP 10.3, use their existing inline commands and the CAP documentation for that 
 
 Skills work with AI coding tools that support the open skill standard, such as [OpenCode](https://opencode.ai), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), or VS Code Copilot.
 
+The repository's `.claude-plugin/marketplace.json` supports plugin installation
+from the public repository or a local clone.
+
 ### `skills` CLI
 
 Inside your project, run:
@@ -50,6 +51,8 @@ Inside Claude Code, run:
 /plugin install cap-developer@cap
 ```
 
+To register a local clone instead, use `/plugin marketplace add /path/to/cap-skills-public`.
+
 See [Claude Code plugins](https://code.claude.com/docs/en/discover-plugins#add-marketplaces).
 
 ### VS Code Copilot Plugin
@@ -66,7 +69,9 @@ In Extensions (<kbd>Shift+Cmd+X</kbd>), search for `@agentPlugins`, find the des
 
 See [Copilot agent plugins](https://code.visualstudio.com/docs/copilot/customization/agent-plugins).
 
-### Symlink (manual)
+## Other install methods
+
+### Symlink
 
 Symlink the `skills/` directory into your tool's config folder:
 
@@ -79,7 +84,45 @@ ln -s /path/to/cap-skills-public/skills ~/.config/opencode/skills
 
 # Claude Code (project-level)
 ln -s /path/to/cap-skills-public/skills .claude/skills
+
+# Claude Code (global)
+ln -s /path/to/cap-skills-public/skills ~/.claude/skills
 ```
+
+You can also symlink an individual skill directory when you only need a subset.
+Create the parent configuration directory first, and check for an existing target
+before adding a link; do not replace user files or an existing installation blindly.
+
+### Copy
+
+Copy a complete skill directory, including its supporting resources, into your
+tool's skill directory. For example, after creating `~/.config/opencode/skills/`:
+
+```sh
+cp -R /path/to/cap-skills-public/skills/cap-check-setup ~/.config/opencode/skills/
+```
+
+Check for an existing copy before running this command. Copied skills do not
+update automatically; preserve local modifications when refreshing them.
+
+## Discovery Paths
+
+For manual installations, each skill is a directory containing `SKILL.md` and any
+supporting files:
+
+| Tool / scope | Path |
+| --- | --- |
+| OpenCode project | `.opencode/skills/<name>/SKILL.md` |
+| OpenCode global | `~/.config/opencode/skills/<name>/SKILL.md` |
+| Claude Code project | `.claude/skills/<name>/SKILL.md` |
+| Claude Code global | `~/.claude/skills/<name>/SKILL.md` |
+| OpenCode shared-layout compatibility, project | `.agents/skills/<name>/SKILL.md` |
+| OpenCode shared-layout compatibility, global | `~/.agents/skills/<name>/SKILL.md` |
+
+OpenCode also discovers skills in the Claude Code locations. Avoid duplicate
+installations across discovery paths unless you deliberately want an override.
+See [OpenCode skills](https://opencode.ai/docs/skills) and
+[Claude Code skills](https://code.claude.com/docs/en/skills) for current discovery rules.
 
 ## Support, Feedback, Contributing
 
