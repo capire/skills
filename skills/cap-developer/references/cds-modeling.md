@@ -9,7 +9,7 @@ to both Node.js and Java.
 Apply these consistently:
 
 - Reuse built-in aspects: `cuid`, `managed`, `temporal` from `@sap/cds/common`
-  - Apply `managed` only to root entities of a composition tree; not to children — the parent's audit fields already cover them
+  - Apply `managed` only to root entities of a composition tree; not to children — the parent's audit fields already cover them (see `cap-cds-review`)
 - Use `Composition of many` for parent-child / document structures; `Association to` for references
 - Use `localized String` for user-facing text that needs translation
 - Naming: PascalCase for entities and types, camelCase for elements

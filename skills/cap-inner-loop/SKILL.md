@@ -78,9 +78,21 @@ $/cds-start .            # from within a CAP project
 - **Consume services** at `<base>/<endpoint>` — e.g. *http://localhost:4004/hcql/admin*.
 - **Don't guess** protocols or endpoints — always take them from the *[service bindings](#local-service-bindings)*.
 
-- For `hcql` endpoints, → see `cap-hcql` and `cap-cql`.
 - For `mcp` endpoints → use connected MCP tools.
 - For `a2a` endpoints → use available A2A clients, if any.
+
+### Before discovering HCQL services
+
+- Before making HCQL requests, fetch and read the client instructions in `guides/protocols/hcql.md` from the selected CAP documentation base URL (default: `https://cap.cloud.sap/docs/`). Reuse guidance already read while it remains current and applicable; do not guess metadata routes.
+- Use bindings to select relevant services and reuse known contracts. When a service's purpose or entity/action names are unknown, start with `GET /` at its HCQL endpoint for a lightweight summary; do not probe every service unnecessarily.
+- Then request only needed schemas together, e.g. `GET /?describe=Books,Authors,submitOrder`. If the needed names are already known from bindings or prior discovery, request their schemas directly. Use `GET /?describe=all` only when the complete contract is needed.
+- Paths above are relative to the HCQL service endpoint, not the server root. If required guidance cannot be loaded, report that before making affected requests; do not silently substitute remembered routes.
+
+### Before composing data queries
+
+- Before writing HCQL or MCP data queries, fetch and read the relevant sections of `guides/protocols/hcql/core-ql.md` from the selected CAP documentation base URL (default: `https://cap.cloud.sap/docs/`). Reuse guidance already read while it remains current and applicable.
+- Schema discovery establishes entity names, fields and operation signatures, not query grammar. Follow the Core QL reference and query-tool description rather than assuming SQL or Classic CQL syntax.
+- If the required reference cannot be loaded, report that before executing affected queries; do not silently substitute remembered syntax.
 
 ## Restarting CAP servers
 

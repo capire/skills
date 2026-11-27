@@ -14,7 +14,7 @@ CDS adds *Associations* and *Compositions*, replacing foreign keys with navigati
 - *[Infix Filters](#infix-filters-narrow)* *narrow* association targets.
 
 - `DISTINCT`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT` work as in SQL.
-- `JOIN`s, sub-`SELECT`s, and `UNION`s are neither needed nor supported. 
+- `JOIN`s, sub-`SELECT`s, and `UNION`s are neither supported nor needed. 
 - In `GROUP BY` and `ORDER BY`, compound expressions have to be enclosed in parentheses, e.g. `group by (stock + 1)`. This also applies inside *infix filters*.
 
 > [!IMPORTANT]
@@ -129,8 +129,8 @@ Specify complete keys as positional, comma-separated scalar key values in `[...]
 SELECT from Books:texts[201,'de'] { title }
 SELECT from Books[201] { title }
 DELETE from Books[201]
-UPDATE Books[201] set stock = 23 where stock > 0
-UPDATE Books:texts[201,'de'] set title='Sturmhöhe'
+UPDATE Books[201] with { stock: 23 } where stock > 0
+UPDATE Books:texts[201,'de'] with { title: 'Sturmhöhe' }
 ```
 
 - Supply the key values on the **final target**, in discovered order.
@@ -185,9 +185,32 @@ INSERT into Authors {
 - Deep writes only follow *compositions*, not associations.
 - *Child→parent* uplinks are filled in automatically for *managed* associations.
 
+## Deep Updates
+
+For a to-many composition `Authors.books`:
+
+```sql :cql
+UPDATE Authors['a1'] with {
+  books: [{ ID: 'b1', title: 'Revised title' }, { ID: 'b2' }]
+}
+```
+
+- **Omitted compositions** stay unchanged.
+- **Supplied collections** are reconciled by complete child keys
+    - matching children → updated
+    - new children → created
+    - absent children → **deleted** ⇒ include every child to keep; keys alone suffice.
+- Scalar or targeted child updates preserve siblings, e.g.:
+
+  ```sql :cql
+  UPDATE Authors['a1']:books['b1'] with { title: 'Revised title' }
+  ```
+
+> See also `cap-hcql` and [CAP reference docs](https://cap.cloud.sap/docs/guides/services/served-ootb#deep-update).
+
 ## Flat Writes / Updates
 
-Unlike deep writes, flat writes don't create a composition tree. They use record syntax to fill an association's nested *foreign key elements*, linking to existing targets. Writing target elements is rejected.
+Unlike deep writes, flat writes don't create a composition tree. They use record syntax to fill an association's nested *foreign key elements*. Writing target elements is rejected.
 
 ```sql :cql
 INSERT into Books {
@@ -196,7 +219,7 @@ INSERT into Books {
 }
 ```
 
-CQL extends standard SQL's `UPDATE` syntax by a `with` clause:
+CQL adds an *UPDATE **with** { record }* syntax variant:
 
 ```sql :cql
 UPDATE Books[144] with {
@@ -205,7 +228,15 @@ UPDATE Books[144] with {
 }
 ```
 
-## Functions & Operators
+Classic *UPDATE **set** x = \<expr\>* is supported as well:
+
+```sql :cql
+UPDATE Books[201] set stock -= 1 where stock >= 1
+```
+
+> Note: _UPDATE **SET**_ is disallowed by default in HCQL.
+
+## Functions & *Operators*
 
 **Null-safe `==`, `!=` operators** treat *null* as a comparable value:
 

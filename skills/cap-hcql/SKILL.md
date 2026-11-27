@@ -42,8 +42,7 @@ Use REST-style requests for reads with selected columns/paths, filtering, orderi
 | PATCH `/entity/:id`  | UPDATE          | JSON object with changed fields |
 | DELETE `/entity/:id` | DELETE          | None                            |
 
-- `/:id` requires a single-field primary key; use CQL for composite-key lookups.
-- PATCH/DELETE address one row by its key. 
+- PATCH/DELETE address one row by its key; see [limitations](#limitations-and-validation) for key constraints.
 
 ### Simple reads with query parameters
 
@@ -79,6 +78,11 @@ Content-Type: application/json
 ]
 ```
 
+### Deep updates
+
+**PATCH with a composition collection deletes unlisted children.** See [Deep Updates in cap-cql](../cap-cql/SKILL.md#deep-updates).
+In JSON, `[]` clears a to-many composition; `null` removes a to-one composition.
+
 
 ## Full CQL Requests
 
@@ -106,20 +110,19 @@ limit 20
 [0, "O'Brien"]
 ```
 
-- HCQL rejects JOINs, UNIONs, sub-selects, comments, and unknown functions.
-- UPDATE/DELETE must be to-one → provide complete keys on the **final target**.
-- Find more details in `cap-cql`.
+See `cap-cql` for syntax and [limitations and validation](#limitations-and-validation) for outward-facing query safeguards.
 
 ### Binding parameters
 
 CQL accepts positional `?`, as well as indexed `?n` and named `:name` binding parameters, which we can use like that:
 
 ```json
-{"cql":"UPDATE Books[?] set stock -= ? where stock >= ?","args":[201,1,1]}
-{"cql":"UPDATE Books[?1] set stock -= ?2 where stock >= ?2","args":[201,1]}
-{"cql":"UPDATE Books[:ID] set stock -= :quantity where stock >= :quantity",
-"args":{"ID":201,"quantity":1}}
+{"cql":"SELECT from Books[?] { ID, title }","args":[201]}
+{"cql":"SELECT from Books[?1] { ID, title } where stock >= ?2","args":[201,1]}
+{"cql":"SELECT from Books[:ID] { ID, title } where stock >= :minimum","args":{"ID":201,"minimum":1}}
 ```
+
+Bindings require the Core QL parser (`compatible` or `cap.core`), not the compiler fallback.
 
 ## Full-text Search
 
@@ -133,12 +136,10 @@ GET /Books?$search=pro
 SELECT ID, title from Books where $search like 'poe' limit 20
 ```
 
-- Use `$search like ?` in the **top-level** `where` clauses only
 - No SQL LIKE wildcards required
-- Combine with other predicates using **`and` only**
 
 
-## Calling Actions
+## Calling Actions and Functions
 
 ```http
 POST /submitOrder
@@ -147,8 +148,9 @@ Content-Type: application/json
 { "book": 201, "quantity": 1 }
 ```
 
-- Inspect arguments using `/?describe=<operation>` on the service. 
-- Only unbound actions – not entity-bound ones
+- Discover unbound signatures with `/?describe=<operation>`. They can also be called at the service root with `{"cql":"CALL submitOrder with { book: 201, quantity: 1 }"}`.
+- Discover instance-bound signatures with `/?describe=<entity>` under `entities.<entity>.actions`; call `/<entity>/<id>/<operation>` with operation arguments in the JSON body or query parameters.
+- Prefer POST for actions; URL-encode instance keys. The URL key identifies the instance; arguments do not override it.
 
 ## Localized Data
 
@@ -162,10 +164,9 @@ Accept-Language: de
 
 **Write localized data** using implicit `texts` associations in *CQL*, with values `ID, locale` as primary keys; use a language-only locale  – e.g., `de`, not `de-DE`:
 
-```json
-{
-  "cql": "UPDATE Books:texts[201,'de'] set title = ?, descr = ?",
-  "args": [ "Sturmhöhe", "Emily Brontë wrote ..." ]
+```sql :cql
+UPDATE Books:texts[201,'de'] with {
+  title: 'Sturmhöhe', descr: 'Emily Brontë wrote ...'
 }
 ```
 
@@ -176,17 +177,40 @@ SELECT from Books:texts[201,'de'] { title }
 SELECT locale, title from Books:texts where ID=201
 ```
 
+## Limitations and Validation
+
+### Outward-facing HCQL
+
+Default query validation protects endpoints used by external clients and agents:
+
+- Targets and navigation stay within exposed service entities, including generated `texts`. Managed associations to non-exposed targets allow discovered foreign-key fields only, not target data or wildcards.
+- References and expressions are checked in all clauses, including infix filters, nested projections, search, and pagination. JOINs, UNIONs, subqueries (including INSERT/UPSERT sources), subject aliases, malformed CQN, raw SQL fragments, and non-allowlisted functions or pseudo variables are rejected.
+- UPDATE/DELETE require complete positional keys on the **final target**. `UPDATE … SET` is disallowed, including literal assignments; use PATCH or `UPDATE … with { … }`, or a modeled action for atomic business updates.
+- Pass untrusted binding values as scalar data, not CQN expressions. Do not relax server guards merely to make a client request succeed.
+
+Selective server opt-ins: `cds.protocols.hcql.allows.UPDATE.with = true` permits SET; `allows.UPDATE.many = true` and `allows.DELETE.many = true` permit bulk writes. Function and pseudo-variable allowlists use `allows.functions` and `allows.pseudos`.
+
+### Trusted internal service-to-service HCQL
+
+Set `cds.protocols.hcql.allows.cqn.any = true` **before server startup** to bypass HCQL query validation and its restrictions. Prefer CQN for query shapes beyond the CQL parser's supported syntax. Use only for trusted internal endpoints, never as a client-side workaround.
+
+This bypass does **not** disable body parsing, HTTP routing, application-service authorization, or input validation. These protocol constraints still apply:
+
+- CQL text must parse; comments are rejected. Bindings require the Core QL parser.
+- REST `/:entity/:id` routes require exactly one key; use CQL/CQN for composite-key data requests.
+- Operation routes accept GET/POST only. Instance calls require one key and do not support collection-bound operations; modeled root CALL supports unbound operations only.
+- `$search like ?` belongs in the top-level WHERE and combines with other predicates using `and` only.
 
 ## Responses
 
-Query/action responses use `{ data: ... }`; failures use `{ errors: [...] }`.
+Query/action responses use `{ data: ... }`; failures use `{ errors: [...] }`. Responses may include `messages`; a nullish result with messages omits `data`.
 
 | Status | Handling                                                                           |
 | ------ | ---------------------------------------------------------------------------------- |
 | 2xx    | Success; INSERT returns **201**.  Don't assume writes to return full records.      |
-| 200    | With `{data:[]}` for non-matched filters; `{data:null}` for to-one reads.          |
-| 204    | Null result w/o data or messages. – **no body: do not parse JSON.**                |
+| 200    | Empty collections return `{data:[]}`.                                             |
+| 204    | Nullish result without messages, including missing single-row reads. **No body: do not parse JSON.** |
 | 400    | Fix syntax, bindings, schema names, or request form using the error message.       |
 | 401    | Ask the user for user name; no pwd required – **do not guess** or retry unchanged. |
 | 403    | Authorization or write guard denied the request; **do not bypass** it.             |
-| 404    | Not found, including missing to-one writes; not the normal missing-read response.  |
+| 404    | Missing to-one writes or unknown bound-operation paths; not the normal missing-read response. |

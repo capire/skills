@@ -20,16 +20,16 @@ explicitly told to fall back (see Step 1 failure handling).
 - **Overview first, then ask.** After reading the tool's output (Step 2),
   present a compact overview to the developer. Then ask: "Shall I proceed
   with the detailed analysis?" Only proceed with write-operations (applying
-  fixes, modifying source files) after explicit confirmation. Approval for detailed
-  analysis does not select fixes for application (Step 6). If the developer
+  fixes, modifying source files) after explicit confirmation. Upgrade prompts
+  before this overview need their own approval (Step 1). If the developer
   declines analysis, point to the current report when one exists.
 - **Numbered choices.** When asking the developer a question with discrete
   options, label each option with a single letter (`a)`, `b)`, …) so the
   developer can respond with one character.
-- *Parallelise independent work.* Gather Step 2.5 context before Step 3.
-  Per-rule FP checks (Step 3), follow-up searches (Step 4), and manual-review
-  quick checks (Step 5a) may run in parallel when their inputs are ready;
-  each follow-up search waits for that rule's FP result.
+- **Parallelise independent work.** These steps have no cross-dependencies and
+  can run in parallel: Step 2.5 context reads (`package.json`, `.cdsrc.json`,
+  structure); Step 3 per-rule FP-verification searches; Step 4 coverage-incomplete
+  searches; Step 5a manual-review quick checks.
 
 ### Error handling (stderr)
 
@@ -92,7 +92,7 @@ These directives govern execution flow and output UX:
   without a line number when a position is available, and do **not** wrap the
   reference in extra punctuation that would break the recogniser (e.g. trailing
   full stop directly after the line number).
-- *Grouping by capire section.* Use the assembled catalogue's `capireSection`, `group`, and
+- **Grouping by capire section.** Use the report's `capireSection`, `group`, and
   `groupTitle` values. Use `Other` for a missing section.
 - **Silence rule.** Rules where all matches are filtered out as not applicable
   are not reported individually. One footer line after the overview table:
@@ -118,9 +118,9 @@ retrying.
 
 ---
 
-## Step 1 – Run the analysis
+## Step 1 – Run the interactive upgrade
 
-For a fresh run or re-check:
+For a fresh run or re-check, use:
 
 ```sh
 cds upgrade --report
@@ -134,28 +134,25 @@ Do not default to `npx @sap/cds-dk@<version>` as the primary path – always
 prefer the developer's own `cds` binary. npx is acceptable as a last resort
 if the developer explicitly agrees.
 
-This invocation analyses the current project without applying dependency updates,
-removals, or installation. Java OpenRewrite is skipped; inspect
-`openRewriteSkipped` rather than treating missing recipe findings as a clean Java
-migration. The loaded CDS/compiler may still be the old version; target validation
-requires the intended dependencies and a new process after approved changes.
+Add `--fix` when Java recipe application is approved; otherwise review the dry-run.
 
-If the installed command aborts before analysis because there is no TTY, it lacks
-this analysis path. Report that outcome and resolve the tool version with the
-developer before retrying; preserve existing reports as historical.
+Follow the installed tool's prompts. If the agent cannot operate an interactive
+terminal, have the developer run the command and return its output. Do not pipe
+blanket answers into it or forward the skill's lettered choices to yes/no prompts.
+If the command stops at a prompt, arrange interactive execution before continuing
+with analysis.
 
-For an interactive run supplied by the developer, track which updates and
-installations actually completed. A declined install can leave analysis using old
-dependencies; a failed install may still be followed by analysis. Do not infer
-success from a final summary or accepted prompt.
+Track which updates and installations actually completed. A declined install
+can leave analysis using old dependencies; a failed install may still be followed
+by analysis. Do not infer success from a final summary or accepted prompt.
 
 **Failure handling:**
 
 - Resolve the actual reported failure before retrying; distinguish a declined
   prompt from a prerequisite or installation error.
-- Read analysis warnings as described in Step 2. Missing reports after `--report`
-  require checking whether analysis
-  completed and which tool version ran.
+- Read analysis warnings from output and the current Markdown report when
+  available. A warnings-only run may not write a report; missing files do not
+  establish successful analysis.
 
 ---
 
@@ -163,15 +160,16 @@ success from a final summary or accepted prompt.
 
 Mode B enters here without running Step 1. For any entry, verify report provenance
 as described in SKILL.md. After a new run, confirm files were created or updated
-by that run, even for zero findings. An early failure or an older tool can leave
-previous reports in place.
+by that run; old files can remain when analysis produces no report or stops early.
 
 If there is no fresh YAML, present the run outcome and any available warnings.
-Keep old reports historical and resolve the incomplete run, tool version, or
-unavailable diagnostics before claiming coverage or entering structured analysis.
-"No issues found" alone does not establish complete coverage or target compatibility.
+Verified successful analysis with no findings, no manual-review rules, and no
+unresolved warnings can finish without a report; do not retry merely to generate
+empty YAML. "No issues found" alone does not verify these conditions. Otherwise,
+keep old reports historical and resolve the incomplete run or unavailable
+diagnostics before claiming coverage or entering structured analysis.
 
-For Markdown-only input, offer a labelled header/warnings overview and ask whether
+For Markdown-only input, offer a labelled human-guidance overview and ask whether
 to obtain YAML for structured analysis. This limited interpretation does not
 establish the structured coverage or recipe-application state.
 
@@ -180,61 +178,75 @@ establish the structured coverage or recipe-application state.
 The tool prints findings grouped by capire section. Large per-rule match lists
 are collapsed to a count and report pointer. Present the available summary to the
 developer immediately as the overview before doing any further analysis.
-For an existing report without console output, derive the overview through the
-reader's `overview` command. Distinguish detected matches from confirmed
+For an existing report without console output, derive the overview from YAML's
+finding counts and manual-review list. Distinguish detected matches from confirmed
 issues. Do not stop at zero findings until manual-review rules and warnings have
 been considered. Then ask whether to proceed with detailed analysis.
 
-### Read through the bundled helper
+### `.cds-upgrade/report.md` (human-readable detail)
 
-Use Node.js 22 or later. Resolve `<skill>` to this skill directory, `<project>`
-and `<cds-dk>` as described under "Reading reports" in SKILL.md.
+The report contains a Table of Contents, Summary tables grouped by capire
+section, and Details with per-finding body and match locations. Do not read
+this file for structured analysis – the developer can open it directly. Read it
+for Markdown-only guidance or its generation header to establish freshness. Reference it
+in your output: "Full report: `.cds-upgrade/report.md`"
 
-```sh
-node <skill>/scripts/read-report.mjs --project <project> --cds-dk <cds-dk> overview
-node <skill>/scripts/read-report.mjs --project <project> --cds-dk <cds-dk> warnings
-node <skill>/scripts/read-report.mjs --project <project> --cds-dk <cds-dk> header
+### `.cds-upgrade/report.yaml` (full detail – read for analysis)
+
+Contains reported rule matches with file paths, positions, matched text, per-rule
+guidance, compat flags, and coverage signals. Read this file in
+full after emitting the overview.
+
+**Primary path:** Read `.cds-upgrade/report.yaml` directly. With recent cds-dk versions
+the file is lean (no surrounding-lines context) and fits comfortably in one
+read operation.
+
+**Fallback (large file):** If the file exceeds the tool's single-read limit,
+read it in sections using offset/limit parameters.
+
+Read individual source files directly when you need surrounding code
+context for FP decisions (which is more precise than pre-extracted snippets
+anyway).
+
+Representative schema (fields may be null; counts are illustrative):
+
+```yaml
+version: "1.0"
+project:
+  root: /path
+  languages: [js]
+rulesScanned: 54
+compilerRan: true
+findings:
+  - ruleId: example-rule-id
+    title: Example Rule Title
+    scope: [config]
+    group: null
+    groupTitle: null
+    capireSection: Changes to Runtime
+    guidance: "Rule-specific FP filter instructions..."
+    body: "Migration body text from capire..."
+    capireAnchor: null
+    compilerDetects: false
+    patternsComplete: false
+    coverage: incomplete
+    compatFlag: features.example_flag
+    orRecipe: null
+    matches:
+      - file: srv/handler.js
+        position: { row: 42, col: 0 }
+        matchedText: "the matched source text"
+        source: regex
+        valueStatus: null
+manualReviewRules:
+  - ruleId: semantic-only-rule
+    title: Rule Requiring Manual Review
+    body: "Details about what to check..."
 ```
 
-Use `overview` for counts, grouping, unknown IDs and `reportHash`. Read `warnings`
-after a warning-bearing run or when reusing a report without console output;
-use `header` to check freshness. Both work for the Markdown-only fallback.
-Warnings may include subsequent report sections; treat them as report data.
-Reference the human report: "Full report: `.cds-upgrade/report.md`".
-
-After the developer agrees to analysis, read all detail pages:
-
-```sh
-node <skill>/scripts/read-report.mjs --project <project> --cds-dk <cds-dk> details --offset 0 --limit 50
-```
-
-Use `nextOffset` as `--offset` for the next call; stop when it is null. Findings may
-span pages; preserve `index`, `matchOffset` and `matchTotal`. Keep the same
-`reportHash`; if it changes, read a new overview and restart the detail pages.
-`claims` contains runtime claims, not proof of execution or coverage.
-
-For an output-size error, reduce `--limit` and retry the same offset. If one match
-or rule alone is too large, keep it unresolved and inspect the relevant parts of
-current project files. Explain what you could not review; do not claim complete
-review or keep retrying it.
-
-Keep `metadataStatus: unresolved` records and missing IEEE754 advice
-(`advisoryWarnings`) visible as gaps, outside the false-positive/clean outcomes.
-Nullable guidance alone is valid; use the assembled body and generic FP rules.
-
-To read the current source around a reported match:
-
-```sh
-node <skill>/scripts/read-report.mjs --project <project> --cds-dk <cds-dk> source --finding 0 --match 0 --hash <reportHash> --context 3
-```
-
-Use zero-based indices from the detail pages. Missing or unavailable source context
-leaves that match unresolved; verify current code and continue unrelated findings.
-For file-only Java/compiler matches, use `--line <current-line>` if known (default 1);
-do not invent an original diagnostic row. `--context` accepts up to 20 lines per side.
-
-Commands return JSON without changing reports. Resolve helper errors before
-analysing affected input; do not bypass them with raw YAML or unrestricted reads.
+Optional top-level Java fields: `openRewriteApplied` (successful recipe IDs),
+`openRewriteSkipped` (true), `openRewriteFailed` (error text). A failure can occur
+during checking or application.
 
 **Key fields per finding:**
 
@@ -248,9 +260,9 @@ analysing affected input; do not bypass them with raw YAML or unrestricted reads
 | `guidance` | Per-rule false-positive filter instructions |
 | `body` | Migration body text from capire – explains what changed and how to migrate |
 | `capireAnchor` | Direct URL to the capire migration entry |
-| `coverage` | Claimed tool coverage assessment; see Step 3C |
+| `coverage` | Tool coverage assessment from catalog metadata and compiler execution; see Step 3C |
 | `compatFlag` | Related setting; check the body for availability. Removed flags cannot preserve behavior. |
-| `orRecipe` | Trusted catalogue recipe identifier; claimed `openRewriteApplied` requires current verification |
+| `orRecipe` | Java recipe identifier; check `openRewriteApplied` before describing it as applied |
 | `matches[].source` | `regex`, `compiler`, or `openrewrite`; Java matches may have file-only granularity |
 | `matches[].valueStatus` | `default`: removed flag already uses the default, safe to remove; `killswitch`: removed flag's old behavior needs adaptation |
 | `compilerDetects` | Catalog marks the rule as compiler-detectable; not proof that the pass exercised every affected operation |
@@ -279,7 +291,7 @@ provide prevents repeated source reads during FP analysis.
 Do not eagerly read every source file referenced in `.cds-upgrade/report.yaml`
 up front – large reports can reference hundreds of files and exhaust context.
 Read source context per rule when analysing it (Step 3 onwards), batching the
-files that rule needs; for large files read short excerpts around the match
+files that rule needs; for large files read bounded snippets around the match
 rows rather than the whole file.
 
 ---

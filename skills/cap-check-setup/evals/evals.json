@@ -1,0 +1,23 @@
+{
+  "skill_name": "cap-check-setup",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I just got a new MacBook for work and need to get ready for CAP Node.js development. Can you check whether everything I need is installed and tell me if anything is missing or outdated?",
+      "expected_output": "A structured status report with a summary table listing Node.js, npm, @sap/cds-dk (and version vs. latest), Java, Maven, and optional tools. Each component classified as OK / OUTDATED / MISSING / OPTIONAL NOT INSTALLED. Remediation commands provided for anything not OK.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "I'm about to pair with a junior dev on our CAP project. Can you quickly run the environment check on my machine so I can show them what a healthy setup looks like and what to aim for?",
+      "expected_output": "A structured status report in the skill's output format. Should run all version commands, classify each tool, and present a clean summary the user can share as a reference.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "My teammate keeps hitting weird errors with cds watch that I don't get. I want to send them a checklist of what my dev environment looks like. Can you check my current setup and produce a status report?",
+      "expected_output": "A complete environment status report covering all required and optional tools. Should highlight anything that could cause cds watch issues (version mismatches, missing plugins). Report should be shareable as a reference.",
+      "files": []
+    }
+  ]
+}
