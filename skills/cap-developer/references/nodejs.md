@@ -16,7 +16,7 @@ cds watch          # start the dev loop
 ```
 
 `cds watch` recompiles the CDS model and reloads handlers on every save — keep it running while
-editing.
+editing. See `cap-inner-loop` for discovering and stopping running servers.
 
 
 ## Module system: use ESM

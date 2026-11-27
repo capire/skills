@@ -123,3 +123,6 @@ D) @Capabilities.Updatable
   just search, then present the questions via the `question` tool.
 - If the user provides a topic you can't find good doc material for, say so
   and suggest a nearby topic you can cover well.
+- After the quiz, point the user at the matching skill for a deeper dive — e.g.
+  `cap-developer` or `cap-cds-review` for modeling, `cap-messaging` for events,
+  `cap-cql` for queries.

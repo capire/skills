@@ -77,7 +77,8 @@ cds watch              # start the dev loop (works without a runtime for pure mo
 ```
 
 When the runtime is known upfront, pass `--java` or `--nodejs` to `cds init` (see the
-runtime-specific reference files for details).
+runtime-specific reference files for details). For starting, discovering and stopping
+local servers, see `cap-inner-loop`.
 
 - **Never** run `cds add sample` — it scaffolds a full demo app into the project.
 - Use `cds add tiny-sample` only if the user explicitly wants a minimal starter model.
