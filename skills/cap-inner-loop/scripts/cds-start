@@ -1,0 +1,36 @@
+#!/bin/sh
+# Start CAP servers for the given projects and confirm they're up.
+#
+#   cds-start <project> [<project> ...]
+#
+# - Skips projects whose server is already running (checked via `cds bindings -c`,
+#   so symlinked project dirs are matched correctly against server.root).
+# - Starts only the missing ones in new terminals, via the sibling `cds-launch`.
+# - Confirms readiness with a BOUNDED poll loop (never hangs): `cds bindings -c`
+#   is a pure liveness ping that exits 0 once every requested project is up, and
+#   lists the still-down projects on stderr otherwise — pass the full list each
+#   time, no pending-set tracking.
+# - On success exits 0; on timeout lists the projects that never came up and exits 1.
+
+[ $# -gt 0 ] || { echo "usage: cds-start <project> ..." >&2; exit 2; }
+here=$(dirname "$0")
+
+# Check each original argument; never turn CLI diagnostics into project names.
+for project in "$@"; do
+  if missing=$(cds bindings -c "$project" 2>&1 >/dev/null); then continue; fi
+  [ "$missing" = "$project" ] || { echo "failed to check CAP bindings: $missing" >&2; exit 1; }
+  "$here/cds-launch" "$project" || exit 1
+done
+
+# Bounded poll: ~15s budget at 0.5s steps. `--check` is a pure liveness ping
+# over the FULL project list each time (no pending-set to track); it exits 0
+# once all are up.
+i=0
+while [ $i -lt 30 ]; do
+  down=$(cds bindings -c "$@" 2>&1 >/dev/null) && exit 0
+  i=$((i + 1))
+  sleep 0.5
+done
+
+echo "timeout: CAP servers did not start: $down" >&2
+exit 1
