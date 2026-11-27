@@ -1,0 +1,93 @@
+html {
+  min-width: 400px;
+  max-width: 640px;
+  width: 80%;
+  padding: 0;
+  margin: 0px auto 125px;
+}
+
+body {
+  /* Inherit text color from the active VS Code theme */
+  color: var(--vscode-editor-foreground);
+  padding: 0;
+  margin: 0;
+  line-height: 1.7em;
+}
+
+/* Frontmatter rendering */
+table.frontmatter {
+	margin-top: -1px;
+	margin-bottom: 70px;
+}
+
+h1 {
+  /* font-weight: 300; */
+  font-size: 32px;
+  margin: 2em 0 1em;
+  border: none;
+}
+
+h2 {
+  font-size: 24px;
+  margin: 2em 0 1em;
+  border: none;
+}
+
+h3 {
+  font-size: 18px;
+  margin: 2em 0 1em;
+}
+
+h6 {
+  font-size: 1.05em;
+  margin: 2em 0 1em;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+}
+
+ul {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+
+li p {
+  margin-bottom: 0.3em;
+}
+
+pre {
+  /* Match the integrated terminal / code block background of the theme */
+  background-color: var(--vscode-textCodeBlock-background);
+  border-radius: 12px !important;
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+
+code {
+  font-family: Courier, monospace;
+  background-color: var(--vscode-textCodeBlock-background);
+  border-radius: 4px;
+  padding: 3px 4px;
+}
+
+/* Theme-specific inline code accent colors */
+body.vscode-light :not(pre) > code {
+  color: darkred;
+}
+
+body.vscode-dark :not(pre) > code,
+body.vscode-high-contrast :not(pre) > code {
+  color: #f0a0a0;
+}
+
+body.vscode-light code.language-sql span.hljs-keyword {
+  color: darkred;
+}
+
+body.vscode-dark code.language-sql span.hljs-keyword,
+body.vscode-high-contrast code.language-sql span.hljs-keyword {
+  color: #f0a0a0;
+}
+
+.markdown-alert > span {
+  font-weight: 600;
+}
