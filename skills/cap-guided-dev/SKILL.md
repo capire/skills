@@ -201,7 +201,7 @@ through the hard rules captured in stage 1 and turn each into the leanest declar
 Before writing *any* logic for a rule, ask explicitly: **can this be expressed declaratively?**
 Most rules people reach for handlers on are actually annotations — a value range is
 `@assert.range`, a required field is `@mandatory`, a format is `@assert.format`, an allowed set
-is an enum, a derived value is a
+is an enum with `@assert.range` enforcement, a derived value is a
 calculated element, and a huge range of conditional and cross-field rules fit
 `@assert: (case when … end)` (see below). A handler
 is the *last* resort, justified only when you can name the specific reason no annotation fits
@@ -238,6 +238,16 @@ The exact expression syntax for a tricky rule is easy to get subtly wrong — co
 the CAP docs (MCP or capire; search
 `@assert expression case when`) or `cap-developer`'s `references/declarative.md` rather than
 guessing, and, per stage 5, prove it with a quick test.
+
+**Common inversion mistake:** a bare comparison such as `(endDate >= startDate)` returns a
+non-null Boolean for both true and false, so both are treated as errors. Returning `resolvedAt`
+when resolved rejects rows with a timestamp while accepting a missing one. Detect the violation
+in `when` and return the message or i18n key in `then`.
+
+No feature flag is needed to enable supported `@assert` validation. In CDS 10.2,
+`cds.features.compile_for_assert` is an optional compiler pass for collecting/merging assertions
+along projection chains, not a runtime validation switch. That pass expects `case … end`
+expressions. See the official [Constraints guide](https://cap.cloud.sap/docs/guides/services/constraints).
 
 ### Stage 5 — Custom handlers (test-driven)
 
