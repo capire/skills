@@ -1,0 +1,25 @@
+{
+  "name": "cap-developer-esm-helpdesk-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "cds serve"
+  },
+  "dependencies": {
+    "@sap/cds": "^10.2.0",
+    "@cap-js/sqlite": "^3.0.0"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^10.2.0"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {
+          "url": ":memory:"
+        }
+      }
+    }
+  }
+}

@@ -17,7 +17,7 @@ cds watch          # start the dev loop
 ```
 
 `cds watch` recompiles the CDS model and reloads handlers on every save — keep it running while
-editing.
+editing. See `cap-inner-loop` for discovering and stopping running servers.
 
 
 ## Module system: use ESM
@@ -74,14 +74,14 @@ For custom handlers:
   if (row.status === 'locked') return req.reject(400, '...')
   await UPDATE(Entity, ID).with({ status: 'locked' })
 
-  // ✅ one guarded DB update, inside a custom action implementing this operation
-  // db is the primary database service; Entity is the intended persistence entity.
-  const result = await db.run(UPDATE(Entity)
-    .where({ ID, status: 'open' })
-    .with({ status: 'locked' }))
-  const affected = typeof result === 'number' ? result : result.affected
-  if (affected !== 1) return req.reject(409, 'NOT_FOUND_OR_NOT_OPEN')
-  ```
+   // ✅ one guarded DB update, inside a custom action implementing this operation
+   // db is the primary database service; Entity is the intended persistence entity.
+   const result = await db.run(UPDATE(Entity)
+     .where({ ID, status: 'open' })
+     .with({ status: 'locked' }))
+   const affected = typeof result === 'number' ? result : result.affected
+   if (affected !== 1) return req.reject(409, 'NOT_FOUND_OR_NOT_OPEN')
+   ```
 
   Check the result contract of the execution API/version: generic application-service CRUD
   results use an array with `.affected`; database adapters may return a numeric count.

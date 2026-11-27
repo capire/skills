@@ -1,0 +1,45 @@
+#!/bin/sh
+if [ -d "/Applications/iTerm.app" ]; then
+
+for tty in "$@"; do
+# Compare by basename so /dev/tty02 matches ttys002 etc.
+base="${tty##*/}"
+osascript <<EOF
+tell application "iTerm"
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      repeat with aSession in sessions of aTab
+        set t to (tty of aSession)
+        if t is "$tty" or t ends with "$base" then
+          close aSession
+          return "closed $tty"
+        end if
+      end repeat
+    end repeat
+  end repeat
+  return "not found: $tty"
+end tell
+EOF
+done
+
+else
+
+for tty in "$@"; do
+base="${tty##*/}"
+osascript <<EOF
+tell application "Terminal"
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      set t to (tty of aTab)
+      if t is "$tty" or t ends with "$base" then
+        close aTab
+        return "closed $tty"
+      end if
+    end repeat
+  end repeat
+  return "not found: $tty"
+end tell
+EOF
+done
+
+fi

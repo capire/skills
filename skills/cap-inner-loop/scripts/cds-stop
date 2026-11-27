@@ -1,0 +1,46 @@
+#!/bin/sh
+# Stop CAP servers for the given projects and close their terminal windows.
+#
+#   cds-stop <project> [<project> ...]
+#
+# Looks up each project's parent pid (ppid) and tty from `cds bindings`
+# (symlink-safe), kills the `cds watch` parents, then closes those terminal
+# Stops the terminal windows via the sibling `close-terminals` script. With no args, stops ALL running
+# servers.
+
+here=$(dirname "$0")
+
+json=$(cds bindings --get servers "$@") || exit 1
+
+# Extract "ppid tty" lines for the matched servers.
+rows=$(printf '%s' "$json" | node -e '
+  let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
+    let b; try { b = JSON.parse(s) } catch { console.error("invalid CAP bindings JSON"); process.exit(1) }
+    const servers = Object.values(b.servers || {});
+    if (servers.some(srv => !Number.isSafeInteger(srv.ppid) || srv.ppid <= 1)) {
+      console.error("invalid registered parent PID"); process.exit(1);
+    }
+    for (const srv of servers)
+      console.log(`${srv.ppid} ${srv.tty || ""}`);
+  });
+') || exit 1
+
+if [ -z "$rows" ]; then
+  echo "no running servers matched" >&2
+  exit 0
+fi
+
+ppids=""
+ttys=""
+# shellcheck disable=SC2162
+echo "$rows" | while read ppid tty; do
+  kill "$ppid" || exit 1
+  echo "stopped $ppid"
+done || exit 1
+
+# Collect ttys (second pass, since the while above runs in a subshell).
+ttys=$(printf '%s\n' "$rows" | awk 'NF>1 {print $2}')
+if [ -n "$ttys" ]; then
+  # shellcheck disable=SC2086
+  "$here/close-terminals" $ttys
+fi
