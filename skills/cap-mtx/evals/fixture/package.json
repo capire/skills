@@ -1,0 +1,16 @@
+{
+  "name": "incidents-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@sap/cds": "^9",
+    "@cap-js/sqlite": "^2"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^9"
+  },
+  "cds": {
+    "requires": {
+      "db": "sqlite"
+    }
+  }
+}
