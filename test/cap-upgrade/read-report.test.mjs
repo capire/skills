@@ -460,11 +460,12 @@ syncBuiltinESMExports();
     assert.ok(!Object.hasOwn(result.data, 'findings'));
   });
 
-  it('integrates with actual installed catalogue and import-free IEEE754 module', () => {
+  it('integrates with the installed catalogue with or without IEEE754 guidance', () => {
     const catalogue = JSON.parse(readFileSync(path.join(TOOL, 'bin/upgrade/migrations/cds10/migrations.json'), 'utf8'));
     const rule = catalogue.entries.find(entry => entry.id === 'ieee754-compatible-default-true');
     assert.ok(rule);
-    const advisory = require(path.join(TOOL, 'bin/upgrade/steps/analyze/ieee754.js'));
+    const advisoryModule = path.join(TOOL, 'bin/upgrade/steps/analyze/ieee754.js');
+    const advisory = existsSync(advisoryModule) ? require(advisoryModule) : null;
     write('tool/bin/upgrade/migrations/cds10/migrations.json', JSON.stringify({ entries: [rule] }));
     save(report({
       findings: [finding({ ruleId: rule.id })],
@@ -473,12 +474,15 @@ syncBuiltinESMExports();
     assert.ok(run().data.advisoryWarnings.includes('This cds-dk installation does not include IEEE754 guidance.'));
     const result = run('details', ['--limit', '500'], { selectedTool: TOOL });
     assert.equal(result.status, 0);
+    assert.deepEqual(result.data.advisoryWarnings, advisory ? [] : [
+      'This cds-dk installation does not include IEEE754 guidance.',
+    ]);
     assert.equal(result.data.findings[0].body, rule.body);
-    assert.equal(result.data.findings[0].IEEE754_GUIDANCE, advisory.IEEE754_GUIDANCE);
+    assert.equal(result.data.findings[0].IEEE754_GUIDANCE, advisory?.IEEE754_GUIDANCE);
     assert.ok(result.data.manualReviewRules.every(entry => entry.metadataStatus === 'resolved'));
     assert.equal(
       result.data.manualReviewRules.find(entry => entry.ruleId === rule.id).IEEE754_NO_MATCHES,
-      advisory.IEEE754_NO_MATCHES,
+      advisory?.IEEE754_NO_MATCHES,
     );
     save(report({
       findings: [],
@@ -486,6 +490,7 @@ syncBuiltinESMExports();
     }));
     const manual = run('details', [], { selectedTool: TOOL });
     assert.equal(manual.status, 0);
-    assert.equal(manual.data.manualReviewRules[0].IEEE754_NO_MATCHES, advisory.IEEE754_NO_MATCHES);
+    assert.deepEqual(manual.data.advisoryWarnings, result.data.advisoryWarnings);
+    assert.equal(manual.data.manualReviewRules[0].IEEE754_NO_MATCHES, advisory?.IEEE754_NO_MATCHES);
   });
 });
