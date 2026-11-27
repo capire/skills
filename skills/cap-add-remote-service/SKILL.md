@@ -1,423 +1,251 @@
 ---
 name: cap-add-remote-service
-description: Add a remote service integration to an existing CAP Node.js application using the Calesi pattern. Imports external APIs (from other CAP apps or OData/S4 sources), creates consumption views, wires up delegation and data federation handlers, and validates the result with cds watch. Use when a developer wants to consume an external service in their CAP app.
+description: "Integrate CAP packages or OData APIs into an existing CAP Node.js app: map/delegate reads, handle navigation/federation, and verify across HTTP using Calesi."
 license: Apache-2.0
 metadata:
   domain: cap
   type: integration
 ---
 
-## What I do
+## Scope and preparation
 
-Guide the developer step-by-step through adding a remote service integration to
-an existing CAP Node.js project, following the CAP-Level Service Integration
-(Calesi) pattern. This covers importing APIs, defining consumption views,
-integrating the model, and wiring up the required Node.js handlers.
+Use CAP service APIs unless a provider limitation requires lower-level HTTP.
+This guidance is **Node.js-specific**; Java needs its own runtime APIs.
 
-## Context I need first
+- Inspect instructions, manifest/lockfile, CDS config/models/keys/associations,
+  handlers and tests. Use installed Node/CDS/toolkit APIs, not unnecessary upgrades.
+- Establish API source, protocol/version, compiled service name, connection key
+  and endpoint/binding. Ask only for missing information; respect supplied fixtures
+  and restrictions on real providers/credentials.
+- Identify reads, navigation/expands, filtering/paging, writes, freshness/outages.
+  Add requested branches; explain live/replica tradeoffs if undecided. MCP/model
+  search is optional; check docs/runtime for consequential uncertainties.
+- Preserve local CRUD, authorization, custom handlers and public endpoints.
+  Adding lookup integration does not authorize deleting local entities/data.
+  Requested replacement needs migration/key analysis and relevant fixture/UI/
+  value-list/text updates, not unrelated rewrites.
 
-Before starting, inspect the project so I understand its structure:
+## Happy path: interface → configuration → mapping → delegation
 
-1. Read `package.json` to learn the project name and existing dependencies.
-2. Use `cds-mcp_search_model` to get an overview of the services and entities
-   already defined in the project.
-3. Ask the user:
-   - Which remote service they want to integrate (another CAP app, S/4HANA
-     Business Partner, etc.)
-   - Whether they have the API already as an npm package, an `.edmx` file, or
-     just a URL
+### 1. Load the interface
 
-## Step 1 — Import the API
+**CAP package:** `npm add <package>` or the project's equivalent. Local directories/
+tarballs and direct consumption of supplied public CDS entries are valid. Respect
+installation constraints and manifest/lockfile consistency. Inspect `package.json`
+(`cds.main`, plugin/config), `index.cds`/public CSN and definitions. Consume interfaces,
+not provider database/implementation models; avoid unnecessary EDMX conversion.
 
-### Option A: CAP package from npm
+**EDMX:** `cds import path/to/API_BUSINESS_PARTNER.edmx`; `--as cds` generates
+CDS instead of CSN. Metadata/output normally go to `srv/external/`. Inspect generated
+config/files and compiled names/keys/types/associations; namespaces normally follow
+the filename, while `keepNamespace` preserves the original. Keep generated interfaces
+reproducible and application changes separate.
 
-If the remote service is published as a CAP package (e.g. `@capire/xflights-data`):
+The API model—not mock CSV headers—defines valid fields. CSVs establish sample
+values/foreign keys; absent sample values do not invalidate model fields.
 
-```sh
-npm add <package-name>
-```
+### 2. Configure a required service
 
-Check the added package's `index.cds` and `package.json` to understand what
-service name and entities it exposes.
-
-**Important**: Also check the package's mock data CSV files (usually in
-`srv/external/data/`) to see which columns actually have data. The consumption
-view should only project columns that exist in the mock data, otherwise the UI
-will show empty values during local development. (Check back with the user if unsure)
-
-### Option B: OData EDMX file
-
-If the developer provides an `.edmx` file (e.g. downloaded from SAP Business
-Accelerator Hub):
-
-```sh
-cds import path/to/API_NAME.edmx
-```
-
-This copies the `.edmx` into `srv/external/` and generates a `.csn` file.
-Use `--as cds` if a human-readable `.cds` file is preferred.
-
-After import, check what was generated in `srv/external/`:
-
-```sh
-ls srv/external/
-```
-
-Add the service to `package.json` under `cds.requires` if not already done:
+Merge into existing configuration, using actual imported names. For example:
 
 ```json
-"cds": {
-  "requires": {
-    "API_NAME": {
-      "kind": "odata-v2"
-    }
-  }
+{"cds":{"requires":{"s4":{
+  "kind":"odata-v2",
+  "model":"srv/external/API_BUSINESS_PARTNER",
+  "service":"API_BUSINESS_PARTNER"
+}}}}
+```
+
+`cds.connect.to('s4')` uses the **requires key**; `service` maps to the model service
+(omit if names match). `model` can use package/directory public entries. Verify
+reachability and remote configuration, not accidental provider embedding.
+
+Use `odata` for V4 (or a supported explicit V4 kind), `odata-v2` for V2, and
+`hcql` only for an HCQL provider. Supply the **service-root URL** via test environment/
+configuration or production bindings before boot/connect. Tests can set
+`cds.env.requires.s4.credentials = { url: providerURL }`; never commit real secrets.
+
+**HTTP client:** current CAP's native fetch is Beta with narrower auth/proxy support;
+Cloud SDK is not mandatory for all local URLs. Check installed capabilities.
+Explicit `cds.remote.native_fetch` controls selection, otherwise SDK availability;
+older runtimes differ. If SDK is selected/required, install compatible
+`@sap-cloud-sdk/connectivity`, `@sap-cloud-sdk/http-client`, `@sap-cloud-sdk/resilience`.
+Keep existing setups unless changes are needed. [Remote Services](https://cap.cloud.sap/docs/node.js/remote-services)
+covers clients, timeout/CSRF, authentication/destinations; production connectivity
+is supported, not required for local integration.
+
+### 3. Map and expose
+
+Consumption views are optional but recommended for vocabulary/field selection.
+A service projection suffices; separate consumption layers support reuse:
+
+```cds
+using { API_BUSINESS_PARTNER as S4 } from './external/API_BUSINESS_PARTNER';
+service TravelService {
+  // Retain existing local entities/operations.
+  @readonly entity Customers as projection on S4.A_BusinessPartner {
+    key BusinessPartner as ID, PersonFullName as name, LastChangeDate as modifiedAt
+  };
 }
 ```
 
-Use `"kind": "odata"` for OData v4 services.
-
-## Step 2 — Create a consumption view
-
-Create a new `.cds` file (e.g. `apis/<source-system>.cds` or
-`srv/external/<name>.cds`) with a *consumption view* — a projection that maps
-the imported definitions to your domain model, renaming and flattening as
-needed.
-
-```cds
-// Example: mapping S/4 A_BusinessPartner to a domain-friendly Customers entity
-using { API_BUSINESS_PARTNER as S4 } from '@capire/s4';
-namespace sap.capire.s4;
-
-@federated entity Customers as projection on S4.A_BusinessPartner {
-  BusinessPartner as ID,
-  PersonFullName  as Name,
-  LastChangeDate  as modifiedAt,
-} where BusinessPartnerCategory == 1;
-```
-
-```cds
-// Example: mapping xflights data to a domain-friendly Flights entity
-using { sap.capire.flights.data as x } from '@capire/xflights-data';
-namespace sap.capire.xflights;
-
-@federated entity Flights as projection on x.Flights {
-  ID, date, departure, arrival, modifiedAt,
-  airline.icon     as icon,
-  airline.name     as airline,
-  origin.name      as origin,
-  destination.name as destination,
-}
-```
-
-Key conventions:
-- Use `@federated` on entities that will need local data replication (see Step 5).
-- Map remote names to your domain names (e.g. `BusinessPartner` → `ID`).
-- Flatten associations into columns where useful (works over HCQL, not plain OData).
-- Add a `where` clause to pre-filter data if needed.
-- If the package annotates the source entity with `@cds.minify:'unused-elements'`,
-  you must override it in your consumption view file:
-  ```cds
-  annotate S4.A_BusinessPartner with @cds.minify:false;
-  ```
-  Otherwise the projection will have no elements and deployment will fail with
-  "Expecting view to have at least one non-virtual element".
-
-## Step 3 — Reference the remote entity from the domain model
-
-In `db/schema.cds` (or the relevant domain model file), import the consumption
-view and add the association:
-
-```cds
-using { sap.capire.xflights as x } from '../apis/capire/xflights';
-
-entity Bookings {
-  // ... existing elements ...
-  Flight : Association to x.Flights;
-}
-```
-
-If the remote entity **replaces** a local entity (e.g. replacing a local
-`Customers` with S/4 Business Partner), remove the local entity definition
-entirely and import the consumption view instead. Then update any existing test
-data CSVs to use IDs that match the remote mock data (e.g. `000001` instead of
-`1004155`).
-
-Also update any UI annotations (value lists, text arrangements) that reference
-fields which no longer exist on the new remote-backed entity.
-
-If you also need a back-association from the remote entity to a local one, use
-an unmanaged association (no foreign keys on the remote side):
-
-```cds
-extend x.Flights with columns {
-  Bookings : Association to many Bookings on Bookings.Flight = $self;
-}
-```
-
-> Unmanaged associations and virtual/calculated fields are the only safe
-> extensions to remote entities — avoid regular elements or managed associations.
-
-## Step 4 — Expose the remote entity in your service (for UIs)
-
-If the remote entity needs to be accessible from a Fiori UI or OData service,
-expose it as a readonly projection inside your application service:
-
-```cds
-// In srv/my-service.cds
-using { sap.capire.xflights as x } from '../apis/capire/xflights';
-
-service MyService {
-  // ... existing entities ...
-  @readonly entity Flights as projection on x.Flights;
-}
-```
-
-Without this, associations to unexposed entities will be cut off.
-
-## Step 5 — Wire up the integration handlers (Node.js)
-
-Open (or create) the service handler file (e.g. `srv/my-service.js`).
-
-### 5a — Connect to the remote service
-
-The service name passed to `cds.connect.to()` **must exactly match** the service
-name defined in the remote package's `index.cds` (or the key used in
-`cds.requires` for EDMX imports). Always look this up — do not invent an alias.
-
-```js
-module.exports = class MyService extends cds.ApplicationService {
-  async init() {
-    const remote = await cds.connect.to('sap.capire.flights.data')
-    // or: cds.connect.to('API_BUSINESS_PARTNER')
-    const { Flights, Customers } = this.entities
-
-    // ... handlers below ...
-
-    return super.init()
-  }
-}
-```
-
-### 5b — Delegation (for value helps / on-demand reads)
-
-Delegate incoming READ requests for a remote entity directly to the upstream
-service. CAP auto-translates queries through the consumption view:
-
-```js
-this.on('READ', Customers, req => s4.run(req.query))
-```
-
-### 5c — Data federation (for joins with local data)
-
-When remote data is needed alongside local data (e.g. displaying flight details
-alongside bookings), there are two approaches. **Ask the user which approach
-they prefer**, explaining the trade-offs:
-
-#### Option 1: Replicate data locally
-
-Copy remote data into a local persistence table so SQL JOINs work natively.
-
-**Pros:**
-- Full SQL JOIN support (filtering, sorting, paging across local + remote data)
-- Fast reads — no network round-trips at query time
-- Works offline / when the remote service is unavailable
-
-**Cons:**
-- Data can be stale (only as fresh as the last replication run)
-- Requires replication logic and scheduling (initial load + delta sync)
-- Consumes local storage
-- More moving parts to maintain and monitor
-
-**Implementation:**
-
-Annotate the consumption view to persist replicated data:
-
-```cds
-// In db/schema.cds
-annotate x.Flights with @cds.persistence.table;
-```
-
-Add replication logic in the service handler (e.g. on startup or on a timer):
-
-```js
-const { Flights } = cds.entities('sap.capire.xflights')
-let { latest } = await SELECT.one`max(modifiedAt) as latest`.from(Flights)
-let touched = await xflights.read(Flights).where`modifiedAt > ${latest || 0}`
-if (touched.length) await UPSERT(touched).into(Flights)
-```
-
-Or use `@federated` (already on the consumption view) together with the
-[CAP Data Federation](https://cap.cloud.sap/docs/guides/integration/data-federation)
-plugin for automatic replication.
-
-#### Option 2: Delegate reads to the remote service (no replication)
-
-Handle READ requests for the remote entity by forwarding the query to the
-upstream service at request time, keeping data always fresh.
-
-**Pros:**
-- Always up-to-date — no stale data
-- No local storage or replication logic needed
-- Simpler setup for read-only scenarios
-
-**Cons:**
-- No native SQL JOINs across local and remote data
-- Every read incurs a network round-trip (latency, availability risk)
-- Filtering/sorting across local + remote fields not supported without
-  additional application-level logic
-- If the remote service is down, reads fail
-
-**Implementation:**
-
-Delegate the READ in your service handler:
-
-```js
-this.on('READ', Flights, req => xflights.run(req.query))
-```
-
-No `@cds.persistence.table` annotation is needed. The entity remains virtual
-from the local DB perspective.
-
-#### Recommendation
-
-Use **replication** when the remote data is needed for JOINs, filtering, or
-sorting together with local data, or when resilience against remote outages
-matters. Use **delegation** when data freshness is critical, the dataset is
-large/volatile, or the entity is only accessed independently (e.g. value helps,
-detail views).
-
-**Important:** If the project schema has a local entity with an `Association to`
-the remote entity, and that local entity is exposed in a list view (i.e. a SQL
-JOIN is required), then replication is **mandatory** — delegation cannot support
-SQL JOINs across service boundaries. The association will silently return `null`
-at runtime. You do not need to ask the user in this case — choose replication.
-
-### 5d — Outboxed events (reliable fire-and-forget writes)
-
-For write operations to the remote service that don't need a synchronous result:
-
-```js
-const xflights_ = cds.outboxed(xflights)
-
-this.after('SAVE', Travels, ({ Bookings = [] }) => {
-  return Promise.all(Bookings.map(b => {
-    let { Flight_ID: flight, Flight_date: date } = b
-    return xflights_.send('POST', 'BookingCreated', { flight, date })
-  }))
-})
-```
-
-This stores the event in a local outbox table within the same DB transaction,
-then forwards it asynchronously with retries.
-
-## Step 6 — Install Cloud SDK prerequisites
-
-Remote HTTP communication requires the SAP Cloud SDK packages. Check if already
-installed; if not, add them:
-
-```sh
-npm add @sap-cloud-sdk/connectivity @sap-cloud-sdk/http-client @sap-cloud-sdk/resilience
-```
-
-## Step 7 — Verify with cds watch
-
-Start the app and check the log output:
-
-```sh
-cds watch
-```
-
-**Check the connection line carefully.** You want to see either:
-- `mocking <service-name>` — CAP is auto-mocking in-process (good for dev)
-- `connect to <service-name> > odata { url: ... }` — CAP is connecting to an
-  external mock process
-
-If you see `connect to ... > odata` pointing to a URL but no mock is running
-there, READ requests will fail silently and return empty results. This happens
-when `~/.cds-services.json` has a stale entry from a previous `cds mock` run.
-Fix by either:
-- Starting the mock: `cds mock <service-name>`
-- Or removing the stale entry so CAP falls back to in-process mocking
-
-Expected: lines like:
-
-```
-[cds] - mocking sap.capire.flights.data { at: [...], ... }
-```
-
-This confirms CAP is auto-mocking the remote service for local development —
-no upstream service needed during inner-loop development.
-
-To test real delegation (separate mock processes):
-
-```sh
-# Terminal 1
-cds mock apis/capire/xflights.cds
-
-# Terminal 2
-cds watch
-```
-
-Check that the consuming service now logs `connect to ... > hcql` (or odata)
-instead of `mocking`.
-
-## Step 8 — Test queries in cds repl
-
-Quickly validate the integration without starting a UI:
-
-```sh
-cds repl ./
-```
-
-```js
-// Connect to the service
-const svc = await cds.connect.to('sap.capire.flights.data')
-const { Flights } = cds.entities('sap.capire.xflights')
-
-// Read through the consumption view
-await svc.read(Flights).limit(3)
-
-// Check that column mapping worked (should see domain names, not remote names)
-```
-
-## Key patterns summary
-
-| Scenario | Pattern |
-|---|---|
-| Read remote data on demand (e.g. value help) | Delegation: `this.on('READ', Entity, req => remote.run(req.query))` |
-| Remote data needed for local SQL JOINs | Data federation: `@federated` + `@cds.persistence.table` + replication logic |
-| Fire-and-forget write to remote | Outboxed emit: `cds.outboxed(remote).send(...)` |
-| Local dev without upstream running | Automatic — CAP mocks in-process; no config needed |
-| Renaming / reshaping remote API to fit domain | Consumption view (projection with column aliases and `where` clause) |
-
-## Common mistakes to avoid
-
-- **Don't** expose raw imported entities directly in your service — always go
-  through a consumption view or projection.
-- **Don't** use the `view` keyword for consumption views — always use
-  `entity ... as projection on`. (`view` is a different CDS concept.)
-- **Don't** use `@cds.persistence.skip` on consumption views — that is a
-  different annotation. Use `@federated` instead (marks the entity for data
-  federation), and add `@cds.persistence.table` separately when you want local
-  replication.
-- **Don't** use string entity names in handler registrations — always destructure
-  from `this.entities`: `const { Flights } = this.entities` then
-  `this.on('READ', Flights, ...)` not `this.on('READ', 'Flights', ...)`.
-- **Don't** invent the service name in `cds.connect.to()` — look it up in the
-  package's `index.cds` or in `cds.requires` for EDMX imports.
-- **Don't** modify CQN objects without cloning them first:
-  `const q2 = cds.ql.clone(q1)`.
-- **Don't** add regular elements or managed associations to remote entity
-  extensions — only unmanaged associations, virtual, and calculated fields.
-- **Don't** rely on live cross-service navigation for filtering/sorting without
-  data federation in place — it will fail at runtime.
-- **Don't** forget Cloud SDK packages — without them, remote HTTP calls will
-  error with a missing dependency message.
-- **Don't** project columns that don't exist in the remote mock data — the UI
-  will show blank values. Always cross-check the mock CSV headers against your
-  consumption view columns.
-- **Don't** forget to update test data foreign keys when replacing a local
-  entity with a remote one — old IDs won't match the remote mock data.
-- **Don't** ignore `@cds.minify` annotations on imported entities — they can
-  strip all elements from your projection, causing deployment failures.
+Preserve **all keys** (including composite) and avoid internal-field leaks. CAP
+resolves suitable projections, maps incoming aliases/predicates and results.
+**CDS 10.2.2 ignores declared view `where` in remote resolution.** Enforce required
+data scope on every read path with typed CQN combined with incoming filters,
+retaining mapping. Test exclusions through collections, keys and nested reads;
+compilation is not enforcement proof.
+
+HCQL association flattening such as `airline.name as airline` is not ordinary
+OData alias mapping. For OData use supported navigation/expand plus mapping, or
+provider-side flattened fields; verify actual protocol capabilities.
+
+Check effective annotations/elements. `@cds.persistence.skip` marks nonpersistent
+remote entities and can propagate; it is not `@federated`. If
+`@cds.minify: 'unused-elements'` removes needed elements, investigate reachability/
+package intent; consider a scoped `@cds.minify: false` override and verify the build.
+
+Local managed associations store local foreign keys; unmanaged ones can reuse keys.
+Expose targets in the application service to retain navigation metadata. Remote
+extensions cannot change provider storage: use unmanaged backlinks or virtual/
+supported calculated fields, not new persisted fields/managed foreign keys. Keep
+application-only fields/navigation out of upstream requests.
+
+### 4. Delegate without losing semantics
+
+In existing service initialization, connect once and register the scoped
+handler: `this.on('READ', this.entities.Customers, req => remote.run(req.query))`.
+Keep established subclass/`cds.service.impl` style; string entity names are valid.
+Preserve initialization/order; scoped `prepend` can supersede handlers. Avoid
+wildcard delegation; preserve local enrichment/custom behavior via `next()` where
+appropriate. Make only intended remote entities read-only, not the writable service.
+
+Forward unchanged CQN without cloning; **clone before mutation**, e.g.
+`cds.ql.clone(req.query)`. Retain selection/filter/order/limit/offset, singleton shape
+and requested options. Combine scope/correlation with filters using typed CQN,
+not concatenated URLs/regexes. Keys can occur in `SELECT.from.ref`, not only `where`.
+Retarget to the compiled **consumption/application projection** or translate every
+clause/result explicitly. Raw provider targets with public aliases lose mapping.
+
+## Requested branches
+
+### Navigation from local parents
+
+Associations are not distributed SQL joins. Never send local-parent paths to a
+provider without that entity. For `Bookings(<key>)/Customer`:
+
+1. Identify the actual CQN path/association and typed/composite parent keys; scope
+   dispatch deliberately rather than guessing the last parameter.
+2. Read parent/key fields while preserving service authorization/custom policy.
+   Request context alone does **not** apply service authorization to direct DB reads;
+   propagate policy failures, not successful empty relations.
+3. Distinguish absent parent, null foreign key and missing target (semantics below).
+   Skip upstream lookup for a null key. Otherwise constrain a singleton query on the
+   remote projection by the foreign keys, retaining selection/applicable query options
+   and data-scope enforcement. Verify HTTP behavior after custom handling.
+
+### Live expands/backlinks
+
+- Clone the local query; remove only the remote expand from DB execution. Preserve
+  local handlers/options/result shape and fetch required correlation keys.
+- Deduplicate non-null keys, fetch remote matches and correlate **by key**, not row
+  position. Batch/chunk for provider limits; per-row calls create N+1 latency/load
+  but may suit tiny scenarios. Document a request budget.
+- Honor nested selection/filter/order/paging, including **per-parent to-many paging**,
+  or explicitly reject unsupported requests. Remove temporary helper fields outside
+  the public contract. OData can include additional public/key properties, but honor
+  stricter application payload requirements. Missing to-one is `null`, to-many `[]`.
+- Preserve root/local filter/order/page/count. Nested filters affect related matches;
+  root remote-field predicates affect **which parents match**. Never filter/order an
+  already paged parent set and claim globally correct results. Implement a correct
+  split plan before paging (e.g. remote candidate keys), broader correlation or a
+  replica; otherwise reject unsupported scope, not silently drop it.
+
+Remote-to-local backlinks reverse the split/correlation direction. Live calls do
+not guarantee a cross-service snapshot. [Calesi](https://cap.cloud.sap/docs/guides/integration/calesi#navigation)
+provides navigation/expand patterns, not universal automatic handling.
+
+### Replica or hybrid
+
+Live reads avoid storage/staleness but depend on upstream availability/latency.
+Replicas enable native joins/filter/order, speed and availability at storage/refresh/
+staleness cost. Associations/list UIs do not mandate replication. Hybrids can use
+live lookups/cached expands; document differing policies.
+
+A consumption view can become a replica with `@cds.persistence.table`; verify
+annotations/schema and implement initial load/refresh/upsert. Define read routing,
+cold cache, refresh trigger, freshness/outages. Address paging/deletes/equal-timestamp
+updates and overlapping/failed refreshes; use local transactions to preserve usable
+snapshots. A watermark alone is insufficient. No undeclared seeded live fallback.
+`@federated` is intent used by the sample's **custom implementation**, not built-in
+auto-replication. Identify/configure that implementation if used.
+[Data Federation](https://cap.cloud.sap/docs/guides/integration/data-federation)
+covers fuller refresh designs; production scheduling is optional unless requested.
+
+### Writes/actions and queues
+
+Delegate only requested, upstream-supported synchronous writes/actions, mapping
+inputs/results and configuring CSRF as needed. Do not add writes to read-only lookup.
+For reliable asynchronous work after a local save, `cds.outboxed(remote).send(...)`
+is available with a configured persistent queue/outbox. Verify transactional enqueue,
+retries, idempotency and failed delivery: no distributed transaction/exactly-once
+provider guarantee. See [Event Queues](https://cap.cloud.sap/docs/guides/events/event-queues).
+
+## Missing data versus remote failure
+
+For OData, direct missing-key reads and absent parents normally yield **404**;
+an existing parent's empty single-valued relationship normally yields **204**;
+missing expanded to-one is **null**. Establish dangling-target/auth policy separately.
+Custom handlers may replace generic existence checks; returning `null` alone does
+not guarantee the correct HTTP status.
+
+Upstream record 404 can be wrapped as 502. Inspect structured provider status (e.g.
+`error.reason.response.status`), not outer status/message text; versions/clients/
+batches differ. Normalize **genuine record absence in validated singleton lookups**
+to the above semantics. Empty successful filtered collections can establish absence
+if typing/mapping/shape are preserved. Endpoint/config 404 is not record absence.
+
+Never turn arbitrary failures into `[]`/`null` or retry blindly. Network/timeouts,
+auth, provider 5xx and unexpected queries remain explicit failures unless a declared
+replica/fallback policy applies. Avoid public credential/raw-error leakage. Unrelated
+local operations should continue during outages.
+
+## Verification and handoff
+
+Compile/load models (e.g. `cds compile '*'`) and run existing tests. `cds watch`
+logs distinguish mocks/URL connections; issue reads. `cds repl ./` with
+`remote.read(consumptionEntity).limit(3)` probes mapping; check mock seed names.
+Shared in-process persistence can hide remote joins/expand defects. Compilation,
+logs, empty collections and service API probes do not prove inbound OData behavior.
+
+Use a **separate-process** CAP provider/conformant HTTP fixture, explicit URL,
+independent data, bounded readiness and cleanup. Interactively run
+`cds mock <interface-model>` and `cds watch` separately. V2 metadata does not make
+a V4 mock serve V2. Observe upstream traffic; stubbed `remote.run` is not wire proof.
+Diagnose stale discovery via bindings/logs or explicit URL; don't delete unrelated
+registry entries or promise unreachable providers silently return empty data.
+
+Add meaningful HTTP tests for implemented scope:
+
+- Selected fields/filter/order/page; existing/missing direct keys; mapping/no leaks.
+  Required data-scope exclusions hold across collections, keys and nested paths.
+- Navigation: matching, null key, dangling target, **absent parent** separately,
+  with narrow selection/options. Expands: repeated/missing keys, shapes/nulls,
+  helper cleanup, nested options or rejection, root paging/count and request budget.
+- Mutate upstream; reread a **filtered collection and direct key**, plus supported
+  navigation/expand. Live shows current data; replicas show stale-before-refresh /
+  fresh-after-refresh, cold cache and failed-refresh preservation. Measure refresh
+  cost separately from query-time cost.
+- Read-only CREATE/UPDATE/DELETE deliberately reject as client errors, with no
+  forwarded writes—not any 5xx accepted. Local CRUD has readback, including relevant
+  foreign-key changes. Distinguish missing records/outages; local operations survive.
+
+Use existing tests, `cds.test` HTTP helpers or supported Node test/fetch.
+No placeholders, swallowed assertions or misleading labels; distinguish smoke/
+focused tests. **Execute documented commands**: e.g. `node --test test/remote.test.cjs`;
+directory arguments depend on Node version. Run `npm test` if documented, not just
+an alternative. Report blockers/failures, not unsupported green claims.
+
+Hand off files, actual model/connection names, strategy/tradeoffs, exact commands/
+observed results, local CRUD preservation and unsupported/unverified scope.
+Smoke/compilation do not prove all tests or production readiness.
