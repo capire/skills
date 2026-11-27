@@ -1,0 +1,29 @@
+{
+  "skill_name": "cap-mtx",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I have a single-tenant incidents CAP app that I want to turn into a SaaS application. We'll deploy to Cloud Foundry and our company uses IAS (not XSUAA). Walk me through what I need to do and what decisions I need to make before we start implementing.",
+      "expected_output": "The skill should identify that two of three decisions are already made (IAS for auth, CF for deployment) and ask about extensibility. It should explain the coupling: IAS implies subscription-manager (not saas-registry). It should outline the full workflow: cds add multitenancy, cds add ias, cds add ams, cds add hana, cds add approuter, cds add mta. It should mention the sidecar architecture and the npm install requirement for mtx/sidecar. Should NOT ask about XSUAA vs IAS or CF vs Kyma since those are stated.",
+      "files": ["skills/cap-mtx/evals/fixture"]
+    },
+    {
+      "id": 1,
+      "prompt": "Convert this incidents app to a multitenant SaaS application. Use XSUAA for auth, deploy to Cloud Foundry. No extensibility needed. Show me the commands to run and the key configuration changes I'll need to make to the generated mta.yaml before deploying.",
+      "expected_output": "Runs cds add multitenancy, cds add xsuaa, cds add hana, cds add approuter, cds add mta in sequence. Mentions running npm install in mtx/sidecar/ for the lockfile. Points out MTA pitfalls: appName with ${org} may have spaces (recommend removing ${org}), approuter hostname may exceed 63 chars (recommend explicit short route), and that saas-registry is the correct subscription service for XSUAA. Shows the TENANT_HOST_PATTERN fix. Mentions the upgrade hook for mta.yaml.",
+      "files": ["skills/cap-mtx/evals/fixture"]
+    },
+    {
+      "id": 2,
+      "prompt": "I just deployed my multitenant CAP app to CF and when a subscriber tries to subscribe I get this error in the sidecar logs: 'Cannot resolve dependency at path uaa in service audit-log. Make sure the service is bound to the MTX sidecar.' What's going on and how do I fix it?",
+      "expected_output": "Explains that the sidecar needs bindings to all services that contribute SaaS dependencies. The audit-log service has a nested 'uaa' credential path that the sidecar tries to resolve for the dependencies callback. Fix: add the audit-log service instance to the sidecar module's requires section in mta.yaml. Should show the mta.yaml snippet. May also mention this is a common pattern — any service with subscriptionDependency config needs to be bound to the sidecar.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I need to run some custom logic when a new tenant subscribes — specifically I want to seed some initial reference data (priority levels, categories) into the new tenant's database right after it's created. How do I hook into the subscription lifecycle in my CAP Node.js app?",
+      "expected_output": "Shows a custom handler that connects to cds.xt.DeploymentService and registers a ds.after('subscribe') handler. Inside the handler, uses the tenant context to INSERT seed data. Should mention that the handler runs after the tenant DB is already created/deployed, so tables exist. Should use cds.context = {tenant} or explain how tenant context is available in the callback. Code should be idiomatic CAP (class-based handler extending cds.ApplicationService or direct registration).",
+      "files": ["skills/cap-mtx/evals/fixture"]
+    }
+  ]
+}

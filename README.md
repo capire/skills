@@ -4,6 +4,29 @@
 
 Curated set of skills helping AI coding agents build and maintain [CAP](https://cap.cloud.sap) applications.
 
+## Included Skills
+
+| Skill | Purpose |
+| --- | --- |
+| [cap-developer](skills/cap-developer/SKILL.md) | CAP application development |
+| [cap-guided-dev](skills/cap-guided-dev/SKILL.md) | Guided, step-by-step development |
+| [cap-add-remote-service](skills/cap-add-remote-service/SKILL.md) | Remote-service integration |
+| [cap-upgrade](skills/cap-upgrade/SKILL.md) | CAP version upgrades |
+| [cap-trivia](skills/cap-trivia/SKILL.md) | CAP knowledge quiz |
+| [cap-check-setup](skills/cap-check-setup/SKILL.md) | Development-environment checks |
+| [cap-troubleshooting](skills/cap-troubleshooting/SKILL.md) | Diagnose CAP application failures |
+| [cap-cds-review](skills/cap-cds-review/SKILL.md) | Review CDS data models |
+| [cap-messaging](skills/cap-messaging/SKILL.md) | Event-driven messaging |
+| [cap-mtx](skills/cap-mtx/SKILL.md) | Multitenancy and extensibility |
+
+### Coming with CAP 10.3
+
+`cap-inner-loop`, `cap-cql`, and `cap-hcql` are prepared on the
+[`2bmain` branch](https://github.com/capire/skills/tree/2bmain). They target CAP 10.3
+and will join `main` after that release; they are not part of the default installation yet.
+Some current skills refer to `cap-inner-loop` for optional lifecycle guidance; until
+CAP 10.3, use their existing inline commands and the CAP documentation for that workflow.
+
 ## Requirements and Setup
 
 Skills work with AI coding tools that support the open skill standard, such as [OpenCode](https://opencode.ai), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), or VS Code Copilot.
