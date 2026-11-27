@@ -1,0 +1,7 @@
+**/.DS_Store
+.DS_Store
+.idea
+
+# Skill eval run artifacts (outputs, grading, timing from specific runs)
+skills/*-workspace/
+**/.obsidian
