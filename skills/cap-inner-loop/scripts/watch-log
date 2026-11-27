@@ -1,0 +1,27 @@
+#!/bin/sh
+if [ -d "/Applications/iTerm.app" ]; then
+
+for logfile in "$@"; do
+osascript <<EOF
+tell application "iTerm"
+  set newWin to (create window with default profile)
+  tell current session of newWin
+    write text "tail -f '$logfile'"
+  end tell
+end tell
+EOF
+echo "watching $logfile"
+done
+
+else
+
+for logfile in "$@"; do
+osascript <<EOF
+tell application "Terminal"
+  do script "tail -f '$logfile'"
+end tell
+EOF
+echo "watching $logfile"
+done
+
+fi

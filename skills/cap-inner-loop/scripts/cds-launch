@@ -1,0 +1,39 @@
+#!/bin/sh
+if [ -d "/Applications/iTerm.app" ]; then
+
+for project in "$@"; do
+projectname=$(basename "$project")
+osascript - "$(pwd)" "$project" "$projectname" <<'EOF' || exit 1
+on run argv
+set projectname to item 3 of argv
+set command to "cd " & quoted form of (item 1 of argv) & " && cds watch " & quoted form of (item 2 of argv)
+tell application "iTerm"
+  set newWin to (create window with default profile)
+  tell current session of newWin
+    set name to projectname
+    write text command
+  end tell
+end tell
+end run
+EOF
+echo "started $project"
+done
+
+else
+
+for project in "$@"; do
+projectname=$(basename "$project")
+osascript - "$(pwd)" "$project" "$projectname" <<'EOF' || exit 1
+on run argv
+set projectname to item 3 of argv
+set command to "cd " & quoted form of (item 1 of argv) & " && cds watch " & quoted form of (item 2 of argv)
+tell application "Terminal"
+  set newTab to (do script command)
+  set the title displayed of newTab to projectname
+end tell
+end run
+EOF
+echo "started $project"
+done
+
+fi
